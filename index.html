@@ -263,6 +263,22 @@
   </div>
   <div id="hint" class="hidden">WASD/Arrows move · Hold E to rob · B shop · G gang · L leaderboard · P phone</div>
 
+  <!-- COMING SOON takeover — the game is hidden while we promote. Visit ?dev=1 to bypass. -->
+  <div id="comingsoon" class="overlay hidden" style="z-index:200; gap:16px">
+    <img class="fetalogo" style="width:96px;height:96px;image-rendering:pixelated" alt="$FETA">
+    <h1>ROBINHOODZ</h1>
+    <div class="tag">Rob the rich · Feed the Feather-Ral Reserve · Earn $FETA</div>
+    <div style="color:var(--feta);letter-spacing:6px;font-size:clamp(18px,4vw,30px);font-weight:bold;text-shadow:3px 3px 0 #000">🚧 COMING SOON 🚧</div>
+    <div class="tag">$FETA CONTRACT · ROBINHOOD CHAIN</div>
+    <div id="csCA" style="background:var(--panel);border:2px solid #2a3352;padding:8px 12px;font-size:clamp(9px,2.4vw,13px);letter-spacing:1px;cursor:pointer;word-break:break-all;max-width:92vw" title="tap to copy">0xb04005a74f036f65bd1cdf633530225c826d7777</div>
+    <button class="px" id="csConnect">🧀 CHECK YOUR $FETA BALANCE</button>
+    <div id="csBal" style="font-size:22px;color:var(--feta);letter-spacing:2px"></div>
+    <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center">
+      <a href="whitepaper.html" target="_blank" style="color:var(--hood);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--hood)">📜 READ THE WHITEPAPER</a>
+      <a href="https://x.com/RobnHoodzGame" target="_blank" rel="noopener" style="color:var(--ink);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--ink)">𝕏 FOLLOW @RobnHoodzGame</a>
+    </div>
+  </div>
+
   <!-- Wallet gate -->
   <div id="wallet" class="overlay">
     <h1>ROBINHOODZ</h1>
@@ -489,6 +505,33 @@ document.getElementById('btnLicense').onclick=payLicense;
 document.getElementById('btnLicBack').onclick=()=>{
   document.getElementById('license').classList.add('hidden');
   document.getElementById('wallet').classList.remove('hidden');
+};
+
+/* ---------- COMING SOON gate: hides the whole game while promoting.
+   Set COMING_SOON=false (or open rhgame.fun/?dev=1) to restore the game. ---------- */
+const COMING_SOON = true;
+if(COMING_SOON && new URLSearchParams(location.search).get('dev')!=='1'){
+  document.getElementById('wallet').classList.add('hidden');
+  document.getElementById('comingsoon').classList.remove('hidden');
+}
+document.getElementById('csCA').onclick=async()=>{
+  try{ await navigator.clipboard.writeText(FETA_TOKEN_ADDRESS);
+    document.getElementById('csCA').style.borderColor='var(--feta)'; }catch(e){}
+};
+document.getElementById('csConnect').onclick=async()=>{
+  const bal=document.getElementById('csBal');
+  const eth=getProvider();
+  if(!eth){ bal.textContent='No wallet detected — open in your wallet browser.'; bal.style.fontSize='13px'; return; }
+  try{
+    bal.textContent='…';
+    const a=(await eth.request({method:'eth_requestAccounts'}))[0];
+    const data='0x70a08231'+a.slice(2).toLowerCase().padStart(64,'0');
+    const r=await fetch(CHAIN_CONFIG.rpcUrls[0],{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_call',params:[{to:FETA_TOKEN_ADDRESS,data},'latest']})});
+    const j=await r.json();
+    bal.style.fontSize='22px';
+    bal.textContent=(Number(BigInt(j.result)/10n**16n)/100).toLocaleString()+' 🧀 $FETA';
+  }catch(e){ bal.textContent='—'; }
 };
 
 /* ---------- live on-chain $FETA balance (display-only — never touches eco) ---------- */
