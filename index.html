@@ -305,18 +305,18 @@
     </div>
   </div>
 
-  <!-- Street License: one-time 0.01 ETH registration for wallet accounts -->
+  <!-- Street License: one-time 1,000 $FETA registration for wallet accounts -->
   <div id="license" class="overlay hidden">
     <h2 style="color:var(--feta);letter-spacing:3px">🪪 STREET LICENSE</h2>
     <div class="lorebox">
       New face in New Sherwood. The city charges a one-time registration:
-      <b style="color:var(--feta)">0.01 ETH</b>, paid straight to the Feather-Ral Reserve.
+      <b style="color:var(--feta)">1,000 $FETA</b>, paid straight to the Feather-Ral Reserve.
       Your license marks this wallet as <b style="color:#7ee08a">payout-eligible</b> —
       leaderboard ranking, season claims at the First Feather Bank, the works.<br><br>
       <b style="color:var(--alert)">Delete your profile and the license burns with it.</b>
       New run, new fee. The streets don't do refunds.
     </div>
-    <button class="px" id="btnLicense">PAY 0.01 ETH &amp; REGISTER</button>
+    <button class="px" id="btnLicense">PAY 1,000 $FETA &amp; REGISTER</button>
     <button class="px" id="btnLicBack" style="background:#2a3352;color:var(--ink)">Back</button>
   </div>
 
@@ -459,7 +459,7 @@ function saveProfile(){
     reserve: eco.reserve, milestone: eco.milestone, lvl: eco.lvl,
     atk: eco.atk, def: eco.def, wins: eco.wins, gang: eco.gang, strikes: eco.strikes, ratT: Math.round(eco.ratT),
     season: eco.season, seasonT: Math.round(eco.seasonT), stats: eco.stats,
-    username: eco.username||null, licensed: !!eco.licensed,
+    username: eco.username||null, licensed: !!eco.licensed, licVer: eco.licensed?LICENSE_VER:0,
     items: items.filter(i=>i.owned).map(i=>i.id),
     x: Math.round(player.x), y: Math.round(player.y),
   }));
@@ -472,33 +472,52 @@ function proceedFromWallet(addr){
   if(addr) document.getElementById('nameChip').style.display='flex';
   if(addr) refreshChainBalance();
   const p = loadProfile();
+  pendingProfile = null;
   if(p && Number.isInteger(p.charIdx)){
-    eco.licensed = !!p.licensed || !addr;      // guests aren't licensable; old saves grandfather in
-    enterGame(p.charIdx, p);
+    const lic = !!p.licensed && (p.licVer||0)>=LICENSE_VER;   // v1 (0.01 ETH era) licenses are void
+    if(addr && !lic){
+      // no grandfathering: every wallet profile needs a current Street License
+      pendingProfile = p;
+      document.getElementById('license').classList.remove('hidden');
+    } else {
+      eco.licensed = lic;                      // guests are never licensed (unranked)
+      enterGame(p.charIdx, p);
+    }
   }
   else if(addr) document.getElementById('license').classList.remove('hidden');  // new wallet = pay first
   else document.getElementById('title').classList.remove('hidden');             // guests play free, unranked
 }
 
-/* ---------- Street License: 0.01 ETH → Reserve, once per profile ---------- */
-const LICENSE_WEI='0x2386f26fc10000';   // 0.01 ETH
+/* ---------- Street License: 1,000 $FETA → Reserve, once per profile ---------- */
+const LICENSE_FETA=1000n*10n**18n;   // 1,000 $FETA (18 decimals)
+const LICENSE_VER=2;                 // v2 = 1,000 $FETA terms; v1 ETH licenses are void
+let pendingProfile=null;             // existing save waiting behind the license gate
 async function payLicense(){
   const eth=getProvider();
   if(!eth){ toast('No wallet provider found.', 'bad'); return; }
   const btn=document.getElementById('btnLicense');
   try{
     btn.disabled=true; btn.textContent='CONFIRM IN WALLET…';
+    const data='0xa9059cbb'+RESERVE_ADDRESS.slice(2).toLowerCase().padStart(64,'0')
+              +LICENSE_FETA.toString(16).padStart(64,'0');
     await eth.request({method:'eth_sendTransaction',
-      params:[{from:wallet.address, to:RESERVE_ADDRESS, value:LICENSE_WEI}]});
+      params:[{from:wallet.address, to:FETA_TOKEN_ADDRESS, data}]});
     eco.licensed=true;
     snd.cash();
     document.getElementById('license').classList.add('hidden');
-    document.getElementById('title').classList.remove('hidden');
     toast('🪪 Registered. Welcome to New Sherwood — pick your hood.', 'res');
-    setTimeout(refreshReserveBalance,5000);
+    if(pendingProfile){                       // existing save: license it and resume the run
+      pendingProfile.licensed=true; pendingProfile.licVer=LICENSE_VER;
+      const p=pendingProfile; pendingProfile=null;
+      enterGame(p.charIdx, p);
+      saveProfile();
+    } else {
+      document.getElementById('title').classList.remove('hidden');
+    }
+    setTimeout(refreshChainBalance,5000); setTimeout(refreshReserveBalance,5000);
   }catch(e){
     toast('License payment cancelled.', 'bad');
-    btn.disabled=false; btn.textContent='PAY 0.01 ETH & REGISTER';
+    btn.disabled=false; btn.textContent='PAY 1,000 $FETA & REGISTER';
   }
 }
 document.getElementById('btnLicense').onclick=payLicense;
@@ -603,9 +622,12 @@ setInterval(refreshReserveBalance, 30000);            // live on-chain Reserve
 refreshReserveBalance();
 
 /* ---------- live presence: heartbeat websocket ----------
-   Privacy by design: the wallet address is NEVER sent. Players appear by
-   chosen username, or a server-assigned CharacterName#N (5th nameless
-   John = John#5). Leave the URL empty to play fully offline. */
+   Privacy by design: during play the wallet address is NEVER sent. Players
+   appear by chosen username, or a server-assigned CharacterName#N (5th
+   nameless John = John#5). ONE exception: at the season horn, licensed
+   players submit a payout report (address + final pending $FETA) so the
+   operator can load the ClaimBank — see queueSeasonReport() below.
+   Leave the URL empty to play fully offline. */
 const PRESENCE_WS_URL='wss://robinhoodz-presence-production.up.railway.app';   // ★ e.g. 'wss://robinhoodz-presence.onrender.com'
 let ws=null, wsId=null, livePlayers=[], wsRetry=2000;
 function wsConnect(){
@@ -615,6 +637,7 @@ function wsConnect(){
     wsRetry=2000;
     ws.send(JSON.stringify({t:'hello', name:eco.username||null,
       char:(CHARS[player.charIdx]&&CHARS[player.charIdx].name)||'Hood'}));
+    flushSeasonReports();                     // deliver any queued payout reports
   };
   ws.onmessage=ev=>{
     try{
@@ -685,6 +708,34 @@ setInterval(()=>{
 },3000);
 addEventListener('beforeunload', ()=>{ try{ws&&ws.close();}catch(e){} });
 addEventListener('beforeunload', saveProfile);
+
+/* ---------- season payout reports → presence server ----------
+   At the horn, licensed wallets submit their final standing so the operator
+   can organize award() calls on the ClaimBank. `baseUnits` is award()-ready
+   (whole $FETA × 10^18). Reports queue in localStorage and flush whenever
+   the socket is up, so an offline horn never loses a payout.
+   Server side: log {t:'seasonFinal'} messages per season, keep the latest
+   report per (addr, season). */
+const REPORT_KEY='robinhoodz:reports';
+function queueSeasonReport(finalPending, rank, of){
+  if(!wallet.address || !eco.licensed) return;   // guests/unlicensed: nothing to pay
+  const whole=Math.round(finalPending*ONCHAIN_PRICE_MULT);
+  if(whole<=0) return;                           // nothing earned — nothing to report
+  const rpt={t:'seasonFinal', addr:wallet.address, season:eco.season,
+    feta:whole, baseUnits:(BigInt(whole)*10n**18n).toString(),
+    rep:Math.round(eco.rep), aura:Math.round(eco.lifetime),
+    name:eco.username||null, rank, of, ts:Date.now()};
+  let q=[]; try{ q=JSON.parse(store.get(REPORT_KEY)||'[]'); }catch(e){}
+  q.push(rpt); store.set(REPORT_KEY, JSON.stringify(q));
+  flushSeasonReports();
+}
+function flushSeasonReports(){
+  if(!(ws && ws.readyState===1)) return;
+  let q=[]; try{ q=JSON.parse(store.get(REPORT_KEY)||'[]'); }catch(e){}
+  if(!q.length) return;
+  try{ q.forEach(r=>ws.send(JSON.stringify(r))); store.set(REPORT_KEY,'[]'); }
+  catch(e){ /* still queued — retry on next connect */ }
+}
 
 /* ---------- Pixel sprites ----------
    Legend: . empty | H hood | S skin | B body(hoodie) | P pants
@@ -912,7 +963,7 @@ const player={x:120,y:120,speed:2.6,pal:null,heatMult:1,auraMult:1};
    robbing people earns respect, not cheese. */
 const eco={feta:0, lifetime:0, rep:0, reserve:0, heat:0, milestone:100, lvl:1,
            atk:0, def:0, wins:0, gang:null, strikes:0, ratT:0,
-           season:1, seasonT:600, stats:{robberies:0, convoys:0, heists:0, earned:0}};
+           season:1, seasonT:604800, stats:{robberies:0, convoys:0, heists:0, earned:0}};
 const EMIT_MIN_REP=20;
 const COP_SIGHT=170;     // rob inside this ring and the heat bar auto-fills
 function onDuty(g){ return !g.minLvl || eco.lvl>=g.minLvl; }
@@ -1046,7 +1097,17 @@ async function raidRival(i){
   checkLevel(); renderGang(); saveProfile();
 }
 /* ---------- season leaderboard & Reserve giveaways ---------- */
-const SEASON_LEN=600;                       // 10 min per season in the prototype
+const SEASON1_END = Date.parse('2026-07-23T00:00:00Z');   // ★ first horn — one week after launch (UTC)
+const SEASON_MS   = 7*24*3600*1000;                       // weekly seasons after that
+function seasonNow(){   // global wall-clock schedule — the horn blows for everyone at once
+  const now=Date.now();
+  const n = now<SEASON1_END ? 1 : 2+Math.floor((now-SEASON1_END)/SEASON_MS);
+  return { n, end: SEASON1_END+(n-1)*SEASON_MS };
+}
+const fmtHorn=t=>{ t=Math.max(0,t);
+  const d=Math.floor(t/86400), h=Math.floor(t%86400/3600), m=Math.floor(t%3600/60), s=Math.floor(t%60);
+  return d>0?`${d}d ${h}h ${m}m`:(h>0?`${h}h ${m}m`:`${m}:${String(s).padStart(2,'0')}`);
+};
 let simPlayers=[];
 function spawnSims(){ simPlayers=[]; }   // retired: the street board is LIVE players now
 function playersBoard(){          // LIVE connected players, ranked by personal ⚔ REP
@@ -1067,7 +1128,7 @@ function renderBoard(){
   const el=document.getElementById('boardBody'); el.innerHTML='';
   const head=document.createElement('div');
   head.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:10px 16px;width:520px;max-width:92vw;font-size:12px;text-align:center';
-  head.innerHTML=`Season ends in <b style="color:var(--feta)">${Math.floor(eco.seasonT/60)}:${String(Math.floor(eco.seasonT%60)).padStart(2,'0')}</b>
+  head.innerHTML=`Season ends in <b style="color:var(--feta)">${fmtHorn(eco.seasonT)}</b>
     · Your PENDING this season: <b style="color:var(--feta)">${eco.feta.toFixed(2)} 🧀</b><br>
     <span class="taxnote">At the horn, pending payouts load into the on-chain ClaimBank — collect at the First Feather Bank. The Reserve chip up top is the live on-chain treasury.</span>`;
   el.appendChild(head);
@@ -1104,8 +1165,10 @@ function endSeason(){
   if(eco.gang && gb.length && gb[0].you)
     gangLine=` ${eco.gang.name} finished the #1 crew — champion bonus will be added to your payout.`;
   sms('FEATHER-RAL RESERVE 🏛', `SEASON ${eco.season} FINAL: #${myIdx+1} of ${entries.length} on the street board · ${finalPending.toFixed(2)} 🧀 PENDING submitted for payout. The ClaimBank loads within 24h — collect at the First Feather Bank [C].${gangLine} New season starts NOW.`);
+  queueSeasonReport(finalPending, myIdx+1, entries.length);   // → presence server for award() prep
   eco.feta=0;                                   // pending resets; real payout arrives via ClaimBank
-  eco.season++; eco.seasonT=SEASON_LEN;
+  const s=seasonNow();
+  eco.season=s.n; eco.seasonT=Math.max(0,(s.end-Date.now())/1000);
   if(boardOpen) renderBoard();
   saveProfile();
 }
@@ -1409,10 +1472,11 @@ function enterGame(charIdx, restore){
     eco.lvl=restore.lvl||1;
     eco.atk=restore.atk||0; eco.def=restore.def||0; eco.wins=restore.wins||0;
     eco.gang=restore.gang||null; eco.strikes=restore.strikes||0; eco.ratT=restore.ratT||0;
-    eco.season=restore.season||1; eco.seasonT=restore.seasonT||600;
+    eco.season=restore.season||1;
+    eco.seasonT=Math.max(0,(seasonNow().end-Date.now())/1000);   // clock is global, never restored
     eco.stats=restore.stats||{robberies:0,convoys:0,heists:0,earned:0};
     eco.username=restore.username||null;
-    eco.licensed=!!restore.licensed;
+    eco.licensed=!!restore.licensed && (restore.licVer||0)>=LICENSE_VER;
     if(eco.username) document.getElementById('nameInput').value=eco.username;
     if(eco.gang && eco.gang.aura==null) eco.gang.aura=50;
     (restore.items||[]).forEach(id=>{
@@ -1421,6 +1485,9 @@ function enterGame(charIdx, restore){
     });
     if(restore.x) player.x=restore.x;
     if(restore.y) player.y=restore.y;
+  } else {
+    eco.season=seasonNow().n;                    // new runs start on the current global season
+    eco.seasonT=Math.max(0,(seasonNow().end-Date.now())/1000);
   }
   document.getElementById('title').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
@@ -1489,9 +1556,10 @@ function update(dt){
   }
   // --- rival gangs grind and raid ---
   updateRivals(dt);
-  // --- season clock ---
-  eco.seasonT-=dt;
-  if(eco.seasonT<=0) endSeason();
+  // --- season clock: global wall-clock horn — same deadline for every player ---
+  const sNow=seasonNow();
+  eco.seasonT=Math.max(0,(sNow.end-Date.now())/1000);
+  if(eco.season<sNow.n) endSeason();   // missed horn(s) offline → submit last active season now
   // --- 🐀 rat tag: gang aura bleeds while the city knows your name ---
   if(eco.ratT>0){
     eco.ratT=Math.max(0,eco.ratT-dt);
