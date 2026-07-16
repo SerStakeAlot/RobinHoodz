@@ -438,7 +438,7 @@ refreshReserveBalance();
    Privacy by design: the wallet address is NEVER sent. Players appear by
    chosen username, or a server-assigned CharacterName#N (5th nameless
    John = John#5). Leave the URL empty to play fully offline. */
-const PRESENCE_WS_URL='';   // ★ e.g. 'wss://robinhoodz-presence.onrender.com'
+const PRESENCE_WS_URL='wss://robinhoodz-presence-production.up.railway.app';   // ★ e.g. 'wss://robinhoodz-presence.onrender.com'
 let ws=null, wsId=null, livePlayers=[], wsRetry=2000;
 function wsConnect(){
   if(!PRESENCE_WS_URL || ws) return;
