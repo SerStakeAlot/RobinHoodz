@@ -443,17 +443,27 @@ async function connectWallet(){
         catch(e){ /* user declined adding the chain — profile still works */ }
       }
     }
-    eth.on?.('accountsChanged', a=>{ wallet.address=a[0]||null; chainFeta=null;
-      if(wallet.address) refreshChainBalance(); });
+    eth.on?.('accountsChanged', a=>{
+      const next=(a[0]||'').toLowerCase();
+      if(started && next!==(wallet.address||'').toLowerCase()){
+        saveProfile();        // save the current run under ITS OWN address…
+        location.reload();    // …then restart the gate so the new account loads its own profile
+        return;
+      }
+      wallet.address=a[0]||null; chainFeta=null;
+      if(wallet.address) refreshChainBalance();
+    });
     proceedFromWallet(wallet.address);
   }catch(e){ wstatus('Connection rejected. Connect a wallet to play.'); }
 }
 
 /* ---------- profiles: saved per address ---------- */
 const profileKey = () => 'robinhoodz:' + (wallet.address||'guest').toLowerCase();
+let profileOwner=null;   // storage key of the running profile — saves are locked to it
 function saveProfile(){
   if(!started) return;
-  store.set(profileKey(), JSON.stringify({
+  if(profileOwner && profileOwner!==profileKey()) return;   // wallet switched mid-run: never cross-save
+  store.set(profileOwner||profileKey(), JSON.stringify({
     charIdx: player.charIdx, feta: eco.feta, lifetime: eco.lifetime, rep: eco.rep,
     reserve: eco.reserve, milestone: eco.milestone, lvl: eco.lvl,
     atk: eco.atk, def: eco.def, wins: eco.wins, gang: eco.gang, strikes: eco.strikes, ratT: Math.round(eco.ratT),
@@ -1460,6 +1470,7 @@ function enterGame(charIdx, restore){
   const c=CHARS[charIdx];
   player.pal=c.pal; player.charIdx=charIdx; player.frames=c.frames; player.grid=c.grid;
   started=true; spawnWorld();
+  profileOwner=profileKey();   // lock all future saves to this address's slot
   if(restore){
     eco.feta=restore.feta||0;
     // legacy saves stored a single 'aura' — split it
