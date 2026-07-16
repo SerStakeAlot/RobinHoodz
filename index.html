@@ -305,18 +305,18 @@
     </div>
   </div>
 
-  <!-- Street License: one-time 1,000 $FETA registration for wallet accounts -->
+  <!-- Street License: one-time 100,000 $FETA registration for wallet accounts -->
   <div id="license" class="overlay hidden">
     <h2 style="color:var(--feta);letter-spacing:3px">🪪 STREET LICENSE</h2>
     <div class="lorebox">
       New face in New Sherwood. The city charges a one-time registration:
-      <b style="color:var(--feta)">1,000 $FETA</b>, paid straight to the Feather-Ral Reserve.
+      <b style="color:var(--feta)">100,000 $FETA</b>, paid straight to the Feather-Ral Reserve.
       Your license marks this wallet as <b style="color:#7ee08a">payout-eligible</b> —
       leaderboard ranking, season claims at the First Feather Bank, the works.<br><br>
       <b style="color:var(--alert)">Delete your profile and the license burns with it.</b>
       New run, new fee. The streets don't do refunds.
     </div>
-    <button class="px" id="btnLicense">PAY 1,000 $FETA &amp; REGISTER</button>
+    <button class="px" id="btnLicense">PAY 100,000 $FETA &amp; REGISTER</button>
     <button class="px" id="btnLicBack" style="background:#2a3352;color:var(--ink)">Back</button>
   </div>
 
@@ -488,9 +488,9 @@ function proceedFromWallet(addr){
   else document.getElementById('title').classList.remove('hidden');             // guests play free, unranked
 }
 
-/* ---------- Street License: 1,000 $FETA → Reserve, once per profile ---------- */
-const LICENSE_FETA=1000n*10n**18n;   // 1,000 $FETA (18 decimals)
-const LICENSE_VER=2;                 // v2 = 1,000 $FETA terms; v1 ETH licenses are void
+/* ---------- Street License: 100,000 $FETA → Reserve, once per profile ---------- */
+const LICENSE_FETA=100000n*10n**18n; // 100,000 $FETA (18 decimals)
+const LICENSE_VER=2;                 // v2 = paid-in-$FETA terms; v1 ETH licenses are void
 let pendingProfile=null;             // existing save waiting behind the license gate
 async function payLicense(){
   const eth=getProvider();
@@ -517,7 +517,7 @@ async function payLicense(){
     setTimeout(refreshChainBalance,5000); setTimeout(refreshReserveBalance,5000);
   }catch(e){
     toast('License payment cancelled.', 'bad');
-    btn.disabled=false; btn.textContent='PAY 1,000 $FETA & REGISTER';
+    btn.disabled=false; btn.textContent='PAY 100,000 $FETA & REGISTER';
   }
 }
 document.getElementById('btnLicense').onclick=payLicense;
