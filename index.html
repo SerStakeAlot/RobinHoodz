@@ -284,9 +284,8 @@
     <h1>ROBINHOODZ</h1>
     <div class="tag">Rob the rich · Feed the Feather-Ral Reserve · Earn $FETA</div>
     <button class="px" id="btnConnect">🔗 Connect Wallet</button>
-    <button class="px" id="btnGuest" style="background:#2a3352;color:var(--ink)">Play as Guest</button>
     <button class="px" id="btnWipe" style="background:transparent;color:var(--dim);box-shadow:none;border:1px solid #2a3352;font-size:11px;padding:7px 14px">🗑 Delete saved profiles &amp; start fresh</button>
-    <div class="tag" id="wstatus">Connect to save your run to your address — or run the streets anonymous.</div>
+    <div class="tag" id="wstatus">Connect your wallet to hit the streets — your run saves to your address.</div>
     <div style="display:flex;gap:22px;align-items:center">
       <a href="whitepaper.html" target="_blank" style="color:var(--hood);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--hood)">📜 READ THE WHITEPAPER</a>
       <a href="https://x.com/RobnHoodzGame" target="_blank" rel="noopener" style="color:var(--ink);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--ink)">𝕏 FOLLOW @RobnHoodzGame</a>
@@ -427,7 +426,7 @@ async function connectWallet(){
     if(location.protocol==='file:')
       wstatus('⚠ Wallets can\'t inject into file:// pages. Serve this over http — e.g. run "python -m http.server" and open http://localhost:8000 — then reconnect.');
     else
-      wstatus('No wallet detected. Unlock MetaMask (or install one), refresh, and try again — or play as guest.');
+      wstatus('No wallet detected. Unlock MetaMask (or install one), refresh, and try again.');
     return;
   }
   try{
@@ -447,10 +446,10 @@ async function connectWallet(){
     eth.on?.('accountsChanged', a=>{ wallet.address=a[0]||null; chainFeta=null;
       if(wallet.address) refreshChainBalance(); });
     proceedFromWallet(wallet.address);
-  }catch(e){ wstatus('Connection rejected. You can still play as guest.'); }
+  }catch(e){ wstatus('Connection rejected. Connect a wallet to play.'); }
 }
 
-/* ---------- profiles: saved per address (or guest) ---------- */
+/* ---------- profiles: saved per address ---------- */
 const profileKey = () => 'robinhoodz:' + (wallet.address||'guest').toLowerCase();
 function saveProfile(){
   if(!started) return;
@@ -469,23 +468,22 @@ function loadProfile(){
 }
 function proceedFromWallet(addr){
   document.getElementById('wallet').classList.add('hidden');
-  if(addr) document.getElementById('nameChip').style.display='flex';
-  if(addr) refreshChainBalance();
+  document.getElementById('nameChip').style.display='flex';
+  refreshChainBalance();
   const p = loadProfile();
   pendingProfile = null;
   if(p && Number.isInteger(p.charIdx)){
     const lic = !!p.licensed && (p.licVer||0)>=LICENSE_VER;   // v1 (0.01 ETH era) licenses are void
-    if(addr && !lic){
-      // no grandfathering: every wallet profile needs a current Street License
+    if(!lic){
+      // no grandfathering: every profile needs a current Street License
       pendingProfile = p;
       document.getElementById('license').classList.remove('hidden');
     } else {
-      eco.licensed = lic;                      // guests are never licensed (unranked)
+      eco.licensed = true;
       enterGame(p.charIdx, p);
     }
   }
-  else if(addr) document.getElementById('license').classList.remove('hidden');  // new wallet = pay first
-  else document.getElementById('title').classList.remove('hidden');             // guests play free, unranked
+  else document.getElementById('license').classList.remove('hidden');   // new wallet = pay first
 }
 
 /* ---------- Street License: 100,000 $FETA → Reserve, once per profile ---------- */
@@ -589,7 +587,7 @@ async function payFeta(units, label){
   }catch(e){ toast('Payment cancelled or failed.', 'bad'); return false; }
 }
 
-/* ---------- live on-chain Reserve balance (public RPC — works for guests too) ---------- */
+/* ---------- live on-chain Reserve balance (public RPC — no wallet needed) ---------- */
 async function refreshReserveBalance(){
   const rpc=(m,p)=>fetch(CHAIN_CONFIG.rpcUrls[0],{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({jsonrpc:'2.0',id:1,method:m,params:p})}).then(r=>r.json());
@@ -606,7 +604,6 @@ async function refreshReserveBalance(){
   }catch(e){ document.getElementById('uiRes').textContent='—'; }
 }
 document.getElementById('btnConnect').onclick = connectWallet;
-document.getElementById('btnGuest').onclick   = ()=>proceedFromWallet(null);
 document.getElementById('btnWipe').onclick    = ()=>{
   try{
     Object.keys(localStorage)
@@ -614,7 +611,7 @@ document.getElementById('btnWipe').onclick    = ()=>{
       .forEach(k=>localStorage.removeItem(k));
   }catch(e){}
   store.mem = {};
-  wstatus('✓ All saved profiles deleted. Connect or play as guest to start a brand-new run.');
+  wstatus('✓ All saved profiles deleted. Connect your wallet to start a brand-new run.');
 };
 setInterval(saveProfile, 5000);                       // autosave
 setInterval(refreshChainBalance, 30000);              // live wallet balance
@@ -718,7 +715,7 @@ addEventListener('beforeunload', saveProfile);
    report per (addr, season). */
 const REPORT_KEY='robinhoodz:reports';
 function queueSeasonReport(finalPending, rank, of){
-  if(!wallet.address || !eco.licensed) return;   // guests/unlicensed: nothing to pay
+  if(!wallet.address || !eco.licensed) return;   // unlicensed: nothing to pay
   const whole=Math.round(finalPending*ONCHAIN_PRICE_MULT);
   if(whole<=0) return;                           // nothing earned — nothing to report
   const rpt={t:'seasonFinal', addr:wallet.address, season:eco.season,
@@ -1280,7 +1277,7 @@ function phoneGo(i){
   [...dots.children].forEach((d,k)=>d.className=k===phonePage?'on':'');
 }
 function openPhone(){ phoneOpen=true;
-  document.getElementById('uNameShow').textContent=eco.username||(wallet.address?'unclaimed':'guest');
+  document.getElementById('uNameShow').textContent=eco.username||'unclaimed';
   document.getElementById('phone').classList.remove('hidden'); }
 function closePhone(){ phoneOpen=false; document.getElementById('phone').classList.add('hidden'); }
 document.getElementById('pClose').onclick = closePhone;
