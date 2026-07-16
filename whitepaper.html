@@ -80,12 +80,10 @@
   <h2><span>03</span>GAMEPLAY</h2>
   <p>Players pick one of five hooded outlaws — Marian, Loxley, John, Scarlett, or Ribbit
   the frog — and work the districts. Robbing bankers and whales earns <b>respect, not
-  cheese</b>: street crime pays AURA only. Big REP swings come from scarcer, riskier events:
-  the <b>Federal Convoy</b> (a scheduled armored-truck run — first player to hit it takes
-  the score) and <b>building heists</b> (cracking the banks and vaults themselves at high
-  level, at the cost of maximum police heat). <b>No $FETA is ever earned, held, or spent
-  inside the game world</b> — in-game play builds AURA and REP; the token itself exists
-  only on-chain in your own wallet.</p>
+  cheese</b>: street crime pays AURA only. Real value enters through scarcer, riskier events:
+  the <b>Federal Convoy</b> (a scheduled armored-truck run carrying payroll) and
+  <b>building heists</b> (cracking the banks and vaults themselves at high level, at the
+  cost of maximum police heat).</p>
   <p>Heat is skill-based: every patrol projects a visible sight ring, and a robbery
   committed inside it maxes your heat instantly. Hot players get chased on foot — and
   caught players take fines and <b>strikes</b>. Three strikes lands you in the
@@ -104,7 +102,7 @@
 
   <h2><span>05</span>GANGS &amp; COMPETITION</h2>
   <p>At level 10, players may form or join gangs (formation fee paid to the Reserve).
-  Gangs boost the REP emissions <i>each member personally earns</i> — capped at +25% — and
+  Gangs boost the emissions <i>each member personally earns</i> — capped at +25% — and
   unlock raids: pay a fee (to the Reserve), attack a rival crew, and shift <b>REP</b>
   between crews on a win or loss. The core rule of all player-versus-player systems:</p>
   <div class="box"><b>REP moves between players. $FETA never does.</b> Every fee is a
@@ -136,18 +134,17 @@
   players. Anyone can audit the Reserve's inflows and outflows on the block explorer at
   any time.</p>
 
-  <h2><span>08</span>ARCHITECTURE — ONE TOKEN, ON-CHAIN ONLY</h2>
-  <p><b>There is no in-game $FETA.</b> The game tracks two scores — AURA (progression) and
-  REP (season standing) — and neither is a token. $FETA exists in exactly one place: the
-  on-chain contract, in players' own wallets. The game reads balances; it never holds them.
-  The two worlds meet exactly once per season, through the <b>FetaClaimBank</b> contract:</p>
+  <h2><span>08</span>ARCHITECTURE — THE TWO-LEDGER MODEL</h2>
+  <p>In-game $FETA is an off-chain scoreboard: it tallies what fraction of the next season
+  pool each player is accruing. On-chain $FETA is the real token. The two meet exactly
+  once per season, through the <b>FetaClaimBank</b> contract:</p>
   <div class="box">
-  <b>Season workflow:</b> the leaderboard closes and ranks players by ⚔ REP → the Reserve
-  swaps WETH for $FETA → the operator funds the ClaimBank and calls
-  <i>award(winners[], amounts[], season)</i> in a single transaction → each winner presses
-  CLAIM at the First Feather Bank in-game and the contract pays their wallet directly.
-  The contract enforces its own solvency, zeroes balances before transfer (no reentrancy),
-  and cannot pay anyone the operator didn't award.</div>
+  <b>Season workflow:</b> the leaderboard closes → the Reserve swaps WETH for $FETA →
+  the operator funds the ClaimBank and calls <i>award(winners[], amounts[], season)</i>
+  in a single transaction → each winner presses CLAIM at the First Feather Bank in-game
+  and the contract pays their wallet directly. The contract enforces its own solvency,
+  zeroes balances before transfer (no reentrancy), and cannot pay anyone the operator
+  didn't award.</div>
   <p>The game client never holds funds, never mints, and never triggers payouts — so a
   modified client can cheat a scoreboard at worst, never a wallet.</p>
   <p>Wallet accounts register once with a <b>Street License</b> — a small one-time ETH fee
