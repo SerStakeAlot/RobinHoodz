@@ -7,20 +7,39 @@ climb the season leaderboard, claim $FETA at the First Feather Bank.
 
 | File | Purpose |
 |---|---|
-| `index.html` | The game (rename `robinhoodz-prototype.html` to this) |
+| `index.html` | The game (homepage) |
 | `whitepaper.html` | Whitepaper — linked from the game's opening screens |
 | `FetaClaimBank.sol` | Season payout claim contract (deploy via Remix) |
 | `feta-logo-1024.png` / `feta-logo-512.png` | Token / site logo |
+| `CNAME` | Custom domain for GitHub Pages (`rhgame.fun`) |
 
-## Deploy on GitHub Pages (free hosting)
+## Live site
 
-1. Create a new **public** repo (e.g. `robinhoodz`).
-2. Upload these files. **Rename `robinhoodz-prototype.html` → `index.html`**
-   (GitHub Pages serves `index.html` as the homepage; the whitepaper's
-   "back to the streets" link already points to it).
-3. Repo **Settings → Pages → Source: Deploy from a branch → main → / (root) → Save**.
-4. Your game is live at `https://<username>.github.io/robinhoodz/` within a minute
-   or two. The whitepaper is at `.../whitepaper.html`.
+- Game: **https://rhgame.fun**
+- Whitepaper: **https://rhgame.fun/whitepaper.html**
+
+## Hosting setup (GitHub Pages + rhgame.fun)
+
+1. Push this repo to GitHub (public).
+2. Repo **Settings → Pages → Source: Deploy from a branch → main → / (root) → Save**.
+3. In **Settings → Pages → Custom domain**, `rhgame.fun` is picked up automatically
+   from the `CNAME` file. Tick **Enforce HTTPS** once the certificate is issued
+   (can take up to an hour after DNS propagates).
+
+### GoDaddy DNS records
+
+In GoDaddy → My Products → `rhgame.fun` → **DNS**, add:
+
+| Type | Name | Value | TTL |
+|---|---|---|---|
+| A | `@` | `185.199.108.153` | 1 hour |
+| A | `@` | `185.199.109.153` | 1 hour |
+| A | `@` | `185.199.110.153` | 1 hour |
+| A | `@` | `185.199.111.153` | 1 hour |
+| CNAME | `www` | `serstakealot.github.io` | 1 hour |
+
+Delete GoDaddy's default "Parked" A record and any conflicting `@` records.
+DNS usually propagates within minutes but can take up to 48 hours.
 
 Hosting on a real domain (instead of `file://`) is also what makes
 **MetaMask wallet connect work** — wallets don't inject into local files.

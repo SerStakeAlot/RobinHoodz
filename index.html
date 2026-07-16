@@ -30,7 +30,7 @@
     display:flex; align-items:center; gap:6px; text-transform:uppercase;
   }
   .chip b{font-size:14px;}
-  .feta b{color:var(--feta);} .aura b{color:#c58cff;} .res b{color:var(--hood);} .lvl b{color:#7ee08a;} .rep b{color:#ff8c5a;}
+  .feta b{color:var(--feta);} .pend b{color:#8fd8ff;} .aura b{color:#c58cff;} .res b{color:var(--hood);} .lvl b{color:#7ee08a;} .rep b{color:#ff8c5a;}
   #heatwrap{margin-left:auto; min-width:150px;}
   #heatbar{width:90px; height:8px; background:#232b47; border:1px solid #000;}
   #heatfill{height:100%; width:0%; background:var(--alert); transition:width .2s;}
@@ -122,29 +122,6 @@
     box-shadow:3px 3px 0 #000; text-transform:uppercase; font-weight:bold;
   }
   button.px:hover{filter:brightness(1.1);}
-  /* ---------- season claim at the First Feather Bank ---------- */
-async function claimFlow(){
-  if(!wallet.address){ toast('Connect a wallet to claim season winnings.', 'bad'); return; }
-  if(CLAIM_BANK_ADDRESS.startsWith('0xREPLACE')){ toast('The claim window opens after the token launches.', 'bad'); return; }
-  const eth=getProvider();
-  if(!eth){ toast('No wallet provider found.', 'bad'); return; }
-  try{
-    const data='0x'+SEL_CLAIMABLE+wallet.address.slice(2).toLowerCase().padStart(64,'0');
-    const res=await eth.request({method:'eth_call',params:[{to:CLAIM_BANK_ADDRESS,data},'latest']});
-    const amt=BigInt(res);
-    if(amt===0n){ toast('Nothing on the books for you this season. Climb the board.', 'bad'); return; }
-    const human=Number(amt/10n**14n)/10000;
-    toast(`🏦 ${human} $FETA on the books. Confirm the withdrawal in your wallet…`, 'res');
-    await eth.request({method:'eth_sendTransaction',
-      params:[{from:wallet.address, to:CLAIM_BANK_ADDRESS, data:'0x'+SEL_CLAIM}]});
-    sms('FIRST FEATHER BANK 🏦', `Withdrawal processed: ${human} $FETA to ${shortAddr(wallet.address)}. Funny how you rob us all week and bank with us on Sunday. Pleasure doing business.`);
-    snd.cash();
-  }catch(e){ toast('Claim cancelled or failed.', 'bad'); }
-}
-function nearBank(){
-  const b=buildings[0];   // FIRST FEATHER BANK
-  return Math.hypot(b.x+b.w/2-player.x, b.y+b.h+10-player.y)<60;
-}
 
 /* ---------- touch controls ---------- */
   #touchUI{position:absolute; inset:0; pointer-events:none; display:none; z-index:40;}
@@ -187,7 +164,8 @@ function nearBank(){
   <canvas id="game" width="960" height="600"></canvas>
 
   <div id="hud" class="hidden">
-    <div class="chip feta">🧀 $FETA <b id="uiFeta">0</b></div>
+    <div class="chip feta" id="walletChip" style="display:none">🧀 $FETA <b id="uiWalletFeta">—</b></div>
+    <div class="chip pend">⏳ PENDING <b id="uiFeta">0</b></div>
     <div class="chip aura">✦ AURA <b id="uiAura">0</b></div>
     <div class="chip rep">⚔ REP <b id="uiRep">0</b></div>
     <div class="chip lvl">✪ LVL <b id="uiLvl">1</b></div>
@@ -196,6 +174,7 @@ function nearBank(){
       <button id="nameSave">✔</button>
     </div>
     <div class="chip res">🏛 RESERVE <b id="uiRes">0</b></div>
+    <div class="chip">● LIVE <b id="uiLive" style="color:#57d7e8">—</b></div>
     <div class="chip"><b id="uiStrikes" style="color:#e5484d">⛓ 0/3</b></div>
     <div class="chip" id="heatwrap">HEAT <div id="heatbar"><div id="heatfill"></div></div></div>
   </div>
@@ -279,7 +258,7 @@ function nearBank(){
 
   <div id="shop" class="overlay hidden">
     <h2>THE FENCE</h2>
-    <div class="taxnote">All purchases pay a 1% Feather-Ral tax on top.</div>
+    <div class="taxnote">Paid in real $FETA, straight to the on-chain Feather-Ral Reserve.</div>
     <div id="items"></div>
     <button class="px" onclick="closeShop()">Back to the streets (B)</button>
   </div>
@@ -307,7 +286,9 @@ const CHAIN_CONFIG = {
 };
 const FETA_TOKEN_ADDRESS = '0xb04005a74f036f65bd1cdf633530225c826d7777';   // ★ $FETA ERC-20 with 1% Reserve tax
 const RESERVE_ADDRESS    = '0x598df76018241b30cd7a672600A89cE7d19add16';   // ★ Feather-Ral Reserve treasury
-const CLAIM_BANK_ADDRESS = '0xEB40BF91a7706fA6274F0dEe1a047727a5143A0A';   // ★ FetaClaimBank contract (season payouts)
+const CLAIM_BANK_ADDRESS = '0xEB40BF91a7706fA6274F0dEe1a047727a5143A0A';
+const ONCHAIN_PRICE_MULT = 1000;   // ★ TUNE: whole $FETA per legacy price unit
+const fmtFeta = u => (u*ONCHAIN_PRICE_MULT).toLocaleString()+' $FETA';   // ★ FetaClaimBank contract (season payouts)
 const SEL_CLAIMABLE='402914f5', SEL_CLAIM='4e71d92d';   // claimable(address), claim()
 
 /* ---------- storage: localStorage when hosted, memory fallback in sandboxes ---------- */
@@ -401,9 +382,41 @@ async function refreshChainBalance(){
       params:[{ to: FETA_TOKEN_ADDRESS, data }, 'latest'] });
     const bal  = BigInt(res);
     chainFeta  = Number(bal / 10n**16n) / 100;   // BigInt math first — never float the raw value
+    document.getElementById('uiWalletFeta').textContent = chainFeta.toLocaleString();
+    document.getElementById('walletChip').style.display = 'flex';
   }catch(e){
     chainFeta = null;
+    document.getElementById('uiWalletFeta').textContent = '—';
   }
+}
+
+/* ---------- pay real $FETA to the Feather-Ral Reserve (direct transfer, no approvals) ---------- */
+async function payFeta(units, label){
+  if(!wallet.address){ toast('Connect a wallet — the streets only take real $FETA now.', 'bad'); return false; }
+  const eth=getProvider(); if(!eth){ toast('No wallet provider found.', 'bad'); return false; }
+  try{
+    const whole=BigInt(Math.round(units*ONCHAIN_PRICE_MULT));
+    const amount=whole*10n**18n;
+    const data='0xa9059cbb'+RESERVE_ADDRESS.slice(2).toLowerCase().padStart(64,'0')
+              +amount.toString(16).padStart(64,'0');
+    toast(`${label}: ${whole.toLocaleString()} $FETA → Feather-Ral Reserve. Confirm in wallet…`);
+    await eth.request({method:'eth_sendTransaction',params:[{from:wallet.address,to:FETA_TOKEN_ADDRESS,data}]});
+    snd.cash();
+    setTimeout(refreshChainBalance,5000); setTimeout(refreshReserveBalance,5000);
+    return true;
+  }catch(e){ toast('Payment cancelled or failed.', 'bad'); return false; }
+}
+
+/* ---------- live on-chain Reserve balance (public RPC — works for guests too) ---------- */
+async function refreshReserveBalance(){
+  try{
+    const data='0x70a08231'+RESERVE_ADDRESS.slice(2).toLowerCase().padStart(64,'0');
+    const r=await fetch(CHAIN_CONFIG.rpcUrls[0],{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_call',params:[{to:FETA_TOKEN_ADDRESS,data},'latest']})});
+    const j=await r.json();
+    const bal=BigInt(j.result);
+    document.getElementById('uiRes').textContent=(Number(bal/10n**16n)/100).toLocaleString();
+  }catch(e){ document.getElementById('uiRes').textContent='—'; }
 }
 document.getElementById('btnConnect').onclick = connectWallet;
 document.getElementById('btnGuest').onclick   = ()=>proceedFromWallet(null);
@@ -418,6 +431,62 @@ document.getElementById('btnWipe').onclick    = ()=>{
 };
 setInterval(saveProfile, 5000);                       // autosave
 setInterval(refreshChainBalance, 30000);              // live wallet balance
+setInterval(refreshReserveBalance, 30000);            // live on-chain Reserve
+refreshReserveBalance();
+
+/* ---------- live presence: heartbeat websocket ----------
+   Privacy by design: the wallet address is NEVER sent. Players appear by
+   chosen username, or a server-assigned CharacterName#N (5th nameless
+   John = John#5). Leave the URL empty to play fully offline. */
+const PRESENCE_WS_URL='';   // ★ e.g. 'wss://robinhoodz-presence.onrender.com'
+let ws=null, wsId=null, livePlayers=[], wsRetry=2000;
+function wsConnect(){
+  if(!PRESENCE_WS_URL || ws) return;
+  try{ ws=new WebSocket(PRESENCE_WS_URL); }catch(e){ ws=null; return; }
+  ws.onopen=()=>{
+    wsRetry=2000;
+    ws.send(JSON.stringify({t:'hello', name:eco.username||null,
+      char:(CHARS[player.charIdx]&&CHARS[player.charIdx].name)||'Hood'}));
+  };
+  ws.onmessage=ev=>{
+    try{
+      const m=JSON.parse(ev.data);
+      if(m.t==='welcome'){ wsId=m.id; toast(`● You're LIVE as ${m.label}`, 'res'); }
+      if(m.t==='rob'){
+        if(m.kind==='mark' && marks[m.idx]){
+          marks[m.idx].cool=m.cool; marks[m.idx].wanderT=0;
+          toast(`⚡ ${m.by} just hit a ${marks[m.idx].kind} — he's spooked.`);
+        }
+        if(m.kind==='building' && buildings[m.idx]){
+          buildings[m.idx].cool=m.cool;
+          toast(`⚡ ${m.by} cracked ${buildings[m.idx].label} — it's cleaned out for now.`);
+        }
+      }
+      if(m.t==='roster'){
+        const prev=new Map(livePlayers.map(p=>[p.id,p]));
+        livePlayers=m.players.filter(p=>p.id!==wsId).map(p=>{
+          const o=prev.get(p.id);
+          if(o){ p.dx=o.dx; p.dy=o.dy; }
+          return p;
+        });
+        document.getElementById('uiLive').textContent=m.players.length;
+      }
+    }catch(e){}
+  };
+  ws.onclose=()=>{
+    ws=null; wsId=null; livePlayers=[];
+    document.getElementById('uiLive').textContent='—';
+    if(started) setTimeout(wsConnect, wsRetry=Math.min(wsRetry*1.5,30000));
+  };
+  ws.onerror=()=>{ try{ws.close();}catch(e){} };
+}
+setInterval(()=>{
+  if(ws && ws.readyState===1 && started)
+    ws.send(JSON.stringify({t:'hb', x:Math.round(player.x), y:Math.round(player.y),
+      lvl:eco.lvl, rep:Math.round(eco.rep), aura:Math.round(eco.lifetime),
+      char:(CHARS[player.charIdx]&&CHARS[player.charIdx].name)||'Hood'}));
+},3000);
+addEventListener('beforeunload', ()=>{ try{ws&&ws.close();}catch(e){} });
 addEventListener('beforeunload', saveProfile);
 
 /* ---------- Pixel sprites ----------
@@ -707,21 +776,8 @@ function sms(from, body){
 }
 let robTarget=null, robProg=0, robKind=null, robLocked=false, robNeed=0;
 
-function tax(amount, label){ // returns net, routes 1% to reserve
-  const cut = Math.max(0.01, amount*0.01);
-  eco.reserve += cut;
-  checkMilestone();
-  return amount - cut;
-}
-function checkMilestone(){
-  if(eco.reserve >= eco.milestone){
-    const drop = Math.round(eco.milestone*0.25);
-    eco.reserve -= drop;
-    eco.feta += drop; // airdrops from the Reserve are tax-exempt
-    toast(`🏛 FEATHER-RAL RESERVE AIRDROP: +${drop} $FETA to the streets`, 'res');
-    eco.milestone = Math.round(eco.milestone*1.6);
-  }
-}
+function tax(amount, label){ return amount; }   // retired: the real 1% happens on-chain at trade time
+function checkMilestone(){}                       // retired: the Reserve lives on-chain now
 
 /* ---------- Shop ---------- */
 const items=[
@@ -749,19 +805,18 @@ function renderGang(){
       <span class="taxnote">Nobody follows an unknown. You're LVL ${eco.lvl} — build your lifetime ✦ AURA
       to ${LVL_T[GANG_LVL_REQ-1]} and the crews will take your calls. Forming OR joining a gang requires LVL ${GANG_LVL_REQ}.</span>`);
   } else if(!eco.gang){
-    const d=box(`<b style="color:var(--feta)">FORM A GANG — ${GANG_COST} 🧀</b><br>
+    const d=box(`<b style="color:var(--feta)">FORM A GANG — ${fmtFeta(GANG_COST)}</b><br>
       <span class="taxnote">Formation fee goes straight to the Feather-Ral Reserve. A gang boosts the
       $FETA emissions <i>you personally earn</i> (+5%/gang level, capped +25%) and lets you raid rivals for REP.</span><br><br>`);
     const inp=document.createElement('input');
     inp.maxLength=18; inp.placeholder='Gang name…';
     inp.style.cssText='font-family:inherit;background:#0d1226;border:2px solid #2a3352;color:var(--ink);padding:8px 10px;width:60%;font-size:13px';
     const btn=document.createElement('button'); btn.className='px'; btn.textContent='FORM'; btn.style.marginLeft='8px';
-    btn.onclick=()=>{
+    btn.onclick=async ()=>{
       const nm=inp.value.trim();
       if(eco.lvl<GANG_LVL_REQ){ toast(`Gangs unlock at LVL ${GANG_LVL_REQ}.`, 'bad'); return; }
       if(!nm){ toast('Your gang needs a name.', 'bad'); return; }
-      if(eco.feta<GANG_COST){ toast(`Need ${GANG_COST} 🧀 to form a gang. Hit a convoy.`, 'bad'); return; }
-      eco.feta-=GANG_COST; eco.reserve+=GANG_COST; checkMilestone();
+      if(!(await payFeta(GANG_COST,'GANG CHARTER'))) return;
       eco.gang={name:nm, aura:50};
       sms('TUCK 📱', `${nm}, huh? Bold. The Sheriffs already heard. Watch your rep — and take some of theirs. ⚔`);
       renderGang(); saveProfile();
@@ -781,16 +836,15 @@ function renderGang(){
       const d=box(`<b style="color:#e5484d">${r.name}</b> · REP ${Math.round(r.rep)} · DEF ${r.def}<br>
         <span class="taxnote">Win: take ~12% of their REP. Lose: drop 6% of yours. Fee → Reserve. REP only — nobody's 🧀 gets touched.</span>`);
       const btn=document.createElement('button'); btn.className='px';
-      btn.textContent=`RAID — ${RAID_FEE} 🧀`; btn.style.cssText='margin-top:6px;font-size:11px;padding:7px 14px';
+      btn.textContent=`RAID — ${fmtFeta(RAID_FEE)}`; btn.style.cssText='margin-top:6px;font-size:11px;padding:7px 14px';
       btn.onclick=()=>raidRival(i);
       d.appendChild(document.createElement('br')); d.appendChild(btn);
     });
   }
 }
-function raidRival(i){
+async function raidRival(i){
   const r=rivals[i];
-  if(eco.feta<RAID_FEE){ toast(`Raids cost ${RAID_FEE} 🧀 — the Reserve doesn't do credit.`, 'bad'); return; }
-  eco.feta-=RAID_FEE; eco.reserve+=RAID_FEE; checkMilestone();
+  if(!(await payFeta(RAID_FEE,'RAID FEE'))) return;
   const atkP=eco.rep*0.5 + eco.atk*25 + rand(0,60);
   const defP=r.rep*0.5   + r.def*25   + rand(0,60);
   if(atkP>defP){
@@ -808,20 +862,11 @@ function raidRival(i){
 /* ---------- season leaderboard & Reserve giveaways ---------- */
 const SEASON_LEN=600;                       // 10 min per season in the prototype
 let simPlayers=[];
-function spawnSims(){
-  simPlayers=[
-    {name:'0xGr33nHood',   rep:340, life:1200, g:0.030},
-    {name:'CheeseLarceny', rep:250, life:800,  g:0.026},
-    {name:'MaidMarauder',  rep:210, life:640,  g:0.022},
-    {name:'FriarTucked',   rep:150, life:500,  g:0.018},
-    {name:'SherwoodShorty',rep:95,  life:300,  g:0.014},
-    {name:'LilFeta',       rep:40,  life:120,  g:0.010},
-  ];
-}
-function playersBoard(){          // individuals, ranked by personal ⚔ REP — giveaways pay here
+function spawnSims(){ simPlayers=[]; }   // retired: the street board is LIVE players now
+function playersBoard(){          // LIVE connected players, ranked by personal ⚔ REP
   return [
     {name:(eco.username?eco.username+' ✔':'YOU'), rep:eco.rep, life:eco.lifetime, you:true},
-    ...simPlayers.map(p=>({name:p.name, rep:p.rep, life:p.life})),
+    ...livePlayers.map(p=>({name:p.label, rep:p.rep||0, life:p.aura||0})),
   ].sort((a,b)=>b.rep-a.rep);
 }
 function gangsBoard(){            // crews, ranked by combined crew ⚔ REP (your crew = you, for now)
@@ -834,12 +879,11 @@ function openBoard(){ boardOpen=true; renderBoard(); document.getElementById('bo
 function closeBoard(){ boardOpen=false; document.getElementById('board').classList.add('hidden'); }
 function renderBoard(){
   const el=document.getElementById('boardBody'); el.innerHTML='';
-  const pool=eco.reserve*0.3;
   const head=document.createElement('div');
   head.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:10px 16px;width:520px;max-width:92vw;font-size:12px;text-align:center';
   head.innerHTML=`Season ends in <b style="color:var(--feta)">${Math.floor(eco.seasonT/60)}:${String(Math.floor(eco.seasonT%60)).padStart(2,'0')}</b>
-    · Giveaway pool: <b style="color:var(--feta)">${pool.toFixed(0)} 🧀</b> (30% of the Reserve)<br>
-    <span class="taxnote">Paid out by ⚔ REP rank at the horn. Everyone places; the top eats first.</span>`;
+    · Your PENDING this season: <b style="color:var(--feta)">${eco.feta.toFixed(2)} 🧀</b><br>
+    <span class="taxnote">At the horn, pending payouts load into the on-chain ClaimBank — collect at the First Feather Bank. The Reserve chip up top is the live on-chain treasury.</span>`;
   el.appendChild(head);
   const table=(title,rows,fmt)=>{
     const t=document.createElement('div');
@@ -856,7 +900,7 @@ function renderBoard(){
     });
     el.appendChild(t);
   };
-  table('STREET BOARD — individuals by personal ⚔ REP (giveaways pay here)',
+  table(`STREET BOARD — LIVE players by ⚔ REP (giveaways pay here)${PRESENCE_WS_URL?'':' · offline'}`,
         playersBoard(), e=>`⚔ ${Math.round(e.rep)} · ✦ ${Math.round(e.life)}`);
   table('GANG BOARD — crews by combined crew ⚔ REP (#1 gang takes a 5% Reserve bonus)',
         gangsBoard(), e=>`⚔ ${Math.round(e.rep)}${e.aura!=null?' · gang aura '+e.aura+'/100':''}`);
@@ -867,22 +911,14 @@ function renderBoard(){
 }
 function endSeason(){
   const entries=playersBoard();
-  const pool=eco.reserve*0.3;
-  eco.reserve-=pool;
-  const weights=entries.map((e,i)=>1/Math.pow(i+1,1.3));
-  const wSum=weights.reduce((a,b)=>a+b,0);
   const myIdx=entries.findIndex(e=>e.you);
-  const myCut=pool*(weights[myIdx]/wSum);
-  eco.feta+=myCut;                             // giveaways are tax-exempt airdrops
-  eco.stats.earned+=myCut;
+  const finalPending=eco.feta;
   let gangLine='';
   const gb=gangsBoard();
-  if(eco.gang && gb.length && gb[0].you){      // your crew topped the gang board
-    const bonus=eco.reserve*0.05; eco.reserve-=bonus;
-    eco.feta+=bonus; eco.stats.earned+=bonus;
-    gangLine=` ${eco.gang.name} finished the #1 crew — champion bonus +${bonus.toFixed(2)} 🧀.`;
-  }
-  sms('FEATHER-RAL RESERVE 🏛', `SEASON ${eco.season} FINAL: you placed #${myIdx+1} of ${entries.length} on the street board. Giveaway: +${myCut.toFixed(2)} 🧀 airdropped.${gangLine} New season starts NOW.`);
+  if(eco.gang && gb.length && gb[0].you)
+    gangLine=` ${eco.gang.name} finished the #1 crew — champion bonus will be added to your payout.`;
+  sms('FEATHER-RAL RESERVE 🏛', `SEASON ${eco.season} FINAL: #${myIdx+1} of ${entries.length} on the street board · ${finalPending.toFixed(2)} 🧀 PENDING submitted for payout. The ClaimBank loads within 24h — collect at the First Feather Bank [C].${gangLine} New season starts NOW.`);
+  eco.feta=0;                                   // pending resets; real payout arrives via ClaimBank
   eco.season++; eco.seasonT=SEASON_LEN;
   if(boardOpen) renderBoard();
   saveProfile();
@@ -892,9 +928,9 @@ function endSeason(){
 function bustPlayer(){
   snd.cells();
   const fine=Math.round(eco.feta*0.2);
-  if(fine>0){ eco.feta-=fine; eco.reserve+=fine; checkMilestone();
-    toast(`🚨 CAUGHT. Fined ${fine} 🧀 — every cent goes to the Reserve.`, 'bad'); }
-  else toast('🚨 Caught, but your pockets were empty. Embarrassing.', 'bad');
+  if(fine>0){ eco.feta-=fine;
+    toast(`🚨 CAUGHT. ${fine} 🧀 docked from your PENDING payout.`, 'bad'); }
+  else toast('🚨 Caught, but your pending tab was empty. Embarrassing.', 'bad');
   eco.heat=0;
   eco.strikes++;
   if(eco.strikes>=3){ openBusted(); }
@@ -914,7 +950,7 @@ function openBusted(){
   intro.innerHTML=`NSPD has you in the box. Three strikes — they can bury your name for good.
     <br><br><b style="color:var(--alert)">TAKE THE FALL:</b> your ⚔ REP goes to zero and you do a short stint.
     Emissions stay off until your REP climbs back over ${EMIT_MIN_REP}.
-    <br><b style="color:var(--feta)">SNITCH:</b> slide the detective ${SNITCH_FEE} 🧀 (straight to the Reserve)
+    <br><b style="color:var(--feta)">SNITCH:</b> slide the detective ${fmtFeta(SNITCH_FEE)} (straight to the on-chain Reserve)
     and give up a rival gang instead — <i>their</i> REP resets to zero and you walk. But you'll wear the 🐀 tag: rivals hit harder, your gang boost suspends, and your GANG AURA bleeds the whole time. If it hits zero, your own crew votes you out.`;
   body.appendChild(intro);
   const fall=document.createElement('button'); fall.className='px';
@@ -923,7 +959,7 @@ function openBusted(){
   rivals.forEach((r,i)=>{
     const btn=document.createElement('button'); btn.className='px';
     btn.style.cssText='background:#2a3352;color:var(--ink);font-size:11px;padding:8px 16px';
-    btn.textContent=`🐀 SNITCH ON ${r.name.toUpperCase()} — ${SNITCH_FEE} 🧀`;
+    btn.textContent=`🐀 SNITCH ON ${r.name.toUpperCase()} — ${fmtFeta(SNITCH_FEE)}`;
     btn.onclick=()=>snitch(i);
     body.appendChild(btn);
   });
@@ -949,10 +985,9 @@ function takeFall(){
     }
   },1000);
 }
-function snitch(i){
-  if(eco.feta<SNITCH_FEE){ toast(`You need ${SNITCH_FEE} 🧀 to buy your way out. Detective doesn't do IOUs.`, 'bad'); return; }
+async function snitch(i){
   const r=rivals[i];
-  eco.feta-=SNITCH_FEE; eco.reserve+=SNITCH_FEE; checkMilestone();
+  if(!(await payFeta(SNITCH_FEE,'SNITCH PAYMENT'))) return;
   r.rep=0;
   eco.ratT=RAT_DURATION;                 // 🐀 tagged — everybody knows
   rivals.forEach(rv=>rv.nextAtk=Math.min(rv.nextAtk,45));
@@ -990,19 +1025,17 @@ function updateRivals(dt){
 function renderShop(){
   const el=document.getElementById('items'); el.innerHTML='';
   items.forEach(it=>{
-    const gross=Math.ceil(it.cost*1.01);
     const d=document.createElement('div');
     d.className='item'+(it.owned?' owned':'');
     d.innerHTML=`<span><b>${it.name}</b><br><span class="taxnote">${it.desc}</span></span>
-                 <span class="price">${it.owned?'OWNED':gross+' 🧀'}</span>`;
-    d.onclick=()=>{
+                 <span class="price">${it.owned?'OWNED':fmtFeta(it.cost)}</span>`;
+    d.onclick=async ()=>{
       if(it.owned) return;
-      const gross=Math.ceil(it.cost*1.01);
-      if(eco.feta<gross){ toast('Not enough $FETA. Go touch some vaults.', 'bad'); return; }
-      eco.feta-=gross; eco.reserve+=gross-it.cost; checkMilestone();
-      it.owned=true; it.fn();
-      toast(`Bought ${it.name}. Reserve pocketed ${(gross-it.cost).toFixed(2)} 🧀`);
-      renderShop();
+      if(await payFeta(it.cost,'THE FENCE — '+it.name)){
+        it.owned=true; it.fn();
+        sms('THE FENCE 🧿', `${it.name} is yours. Paid in real cheese — pleasure doing business.`);
+        renderShop(); saveProfile();
+      }
     };
     el.appendChild(d);
   });
@@ -1085,6 +1118,7 @@ function trySetUsername(){
   if(!nameClean(n)){ toast('That name won\'t fly on these streets. Pick another.', 'bad'); return; }
   if(nameTaken(n)){ toast(`"${n}" is taken. Somebody beat you to it.`, 'bad'); return; }
   eco.username=n; saveProfile();
+  if(ws && ws.readyState===1) ws.send(JSON.stringify({t:'rename', name:n}));
   toast(`✔ You're "${n}" now. The streets will remember it.`, 'res');
   snd.text();
 }
@@ -1194,6 +1228,7 @@ function enterGame(charIdx, restore){
   document.getElementById('title').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
   document.getElementById('hint').classList.remove('hidden');
+  wsConnect();
   if(restore){
     toast(`Welcome back, ${c.name}. ${shortAddr(wallet.address)} · LVL ${eco.lvl} · ${eco.feta.toFixed(0)} 🧀 restored.`);
   } else {
@@ -1257,8 +1292,7 @@ function update(dt){
   }
   // --- rival gangs grind and raid ---
   updateRivals(dt);
-  // --- season clock & the competition grinding around you ---
-  for(const sp2 of simPlayers){ sp2.rep+=sp2.g*dt*60; sp2.life+=sp2.g*dt*90; }
+  // --- season clock ---
   eco.seasonT-=dt;
   if(eco.seasonT<=0) endSeason();
   // --- 🐀 rat tag: gang aura bleeds while the city knows your name ---
@@ -1390,7 +1424,7 @@ function update(dt){
         else eco.heat=Math.min(100, eco.heat+35*player.heatMult);
         robTarget.robbed=true; snd.cash();
         eco.stats.convoys++; eco.stats.earned+=net;
-        toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 (1% to Reserve) · +${auraGain} ✦⚔`, 'res');
+        toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
       } else if(robKind==='building'){
         const gross=Math.round(rand(robTarget.heist[0],robTarget.heist[1]));
         const net=tax(gross);
@@ -1400,15 +1434,17 @@ function update(dt){
         if(copWitness()){ eco.heat=100; toast('👮 CRACKED IT IN FRONT OF A COP. Bold. Heat maxed.', 'bad'); }
         else eco.heat=Math.min(100, 100*player.heatMult);   // alarms blare
         robTarget.cool=60;
+        if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'rob',kind:'building',idx:buildings.indexOf(robTarget),cool:60}));
         snd.cash();
         eco.stats.heists++; eco.stats.earned+=net;
-        toast(`🏦 HEIST: cracked ${robTarget.label} for +${net.toFixed(2)} 🧀 (1% to Reserve) · +${auraGain} ✦⚔`, 'res');
+        toast(`🏦 HEIST: cracked ${robTarget.label} — +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
       } else {
         const auraGain=Math.round(robTarget.aura*player.auraMult);
         gainAura(auraGain);
         if(copWitness()){ eco.heat=100; toast('👮 WITNESSED — that badge was RIGHT THERE. Heat maxed!', 'bad'); }
         else eco.heat=Math.min(100, eco.heat+22*player.heatMult);
         robTarget.cool=12; robTarget.wanderT=0;
+        if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'rob',kind:'mark',idx:marks.indexOf(robTarget),cool:12}));
         snd.cash();
         eco.stats.robberies++;
         toast(`Robbed a ${robTarget.kind}: +${auraGain} ✦ AURA · +${auraGain} ⚔ REP — respect, not cheese.`);
@@ -1418,13 +1454,11 @@ function update(dt){
   } else robProg=Math.max(0,robProg-dt*2);
 
   // --- HUD ---
-  document.getElementById('uiFeta').textContent =
-    (wallet.address && chainFeta!==null) ? chainFeta.toLocaleString() : eco.feta.toFixed(2);
+  document.getElementById('uiFeta').textContent = eco.feta.toFixed(2);
   document.getElementById('uiAura').textContent=Math.round(eco.lifetime);
   document.getElementById('uiRep').textContent=Math.round(eco.rep);
   document.getElementById('uiStrikes').textContent='⛓ '+eco.strikes+'/3'+(eco.ratT>0?' · 🐀 '+Math.ceil(eco.ratT)+'s':'');
   document.getElementById('uiLvl').textContent=eco.lvl;
-  document.getElementById('uiRes').textContent=eco.reserve.toFixed(2);
   document.getElementById('heatfill').style.width=eco.heat+'%';
 }
 
@@ -1623,6 +1657,19 @@ function render(){
     cx.restore();
     cx.fillStyle='#f2c341'; cx.font='bold 9px Courier New'; cx.textAlign='center';
     cx.fillText(convoy.robbed?'(hit — speeding off)':'FEDERAL CONVOY 🧀', convoy.x, convoy.y+32);
+    cx.textAlign='left';
+  }
+  // fellow hoods, live from the presence server
+  for(const p of livePlayers){
+    const c=CHARS.find(ch=>ch.name===p.char)||CHARS[1];
+    if(p.dx==null){ p.dx=p.x; p.dy=p.y; }
+    p.dx+=(p.x-p.dx)*0.08; p.dy+=(p.y-p.dy)*0.08;      // ease toward last heartbeat
+    const moving=Math.hypot(p.x-p.dx,p.y-p.dy)>2;
+    cx.globalAlpha=0.85;
+    drawSprite(cx, stepFrame(c.frames, moving, stride+p.id), c.pal, p.dx-18, p.dy-24, 3);
+    cx.globalAlpha=1;
+    cx.fillStyle='#57d7e8'; cx.font='9px Courier New'; cx.textAlign='center';
+    cx.fillText(`${p.label} · L${p.lvl}`, p.dx, p.dy-30);
     cx.textAlign='left';
   }
   // player
