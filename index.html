@@ -149,6 +149,33 @@
     width:44px; height:44px; border-radius:8px; background:rgba(10,15,31,.9); color:var(--ink);
     border:2px solid #2a3352; font-family:inherit; font-size:13px; font-weight:bold; touch-action:manipulation;
   }
+  .chiplogo{width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px;}
+  #phone{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(7,10,22,.55); z-index:45;}
+  #phoneBody{
+    position:relative; width:290px; height:540px; background:#10162b;
+    border:4px solid #000; border-radius:28px; box-shadow:0 0 0 3px #2a3352, 0 24px 60px rgba(0,0,0,.7);
+    display:flex; flex-direction:column; align-items:center; padding:16px 12px 46px; pointer-events:auto;
+  }
+  #phoneNotch{width:90px; height:10px; background:#000; border-radius:6px; margin-bottom:10px;}
+  #phoneLogo{width:64px; height:64px; image-rendering:pixelated; margin-bottom:6px;}
+  #phoneView{flex:1; width:100%; overflow:hidden; border:2px solid #2a3352; background:var(--panel);}
+  #phoneTrack{display:flex; height:100%; transition:transform .25s ease;}
+  .ppage{min-width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:8px; text-align:center; padding:14px;}
+  .ppage .pico{font-size:44px; line-height:1;}
+  .ppage .plab{color:var(--dim); letter-spacing:3px; font-size:11px;}
+  .ppage b{font-size:30px; color:var(--feta);}
+  .ppage small{color:var(--dim); font-size:10px; line-height:1.6; max-width:210px;}
+  #liveList{font-size:10px; color:#57d7e8; line-height:1.7; max-height:170px; overflow:auto; width:100%;}
+  .parrow{
+    position:absolute; bottom:10px; width:54px; height:30px; background:#0a0f1f; color:var(--ink);
+    border:2px solid #2a3352; font-family:inherit; font-size:13px; cursor:pointer;
+  }
+  #pPrev{left:18px;} #pNext{right:18px;}
+  #pDots{position:absolute; bottom:16px; display:flex; gap:5px;}
+  #pDots span{width:7px; height:7px; background:#2a3352; border-radius:50%;}
+  #pDots span.on{background:var(--feta);}
   #nameChip input{
     font-family:inherit; background:#0d1226; border:1px solid #2a3352; color:var(--ink);
     padding:2px 6px; width:110px; font-size:11px;
@@ -164,36 +191,41 @@
   <canvas id="game" width="960" height="600"></canvas>
 
   <div id="hud" class="hidden">
-    <div class="chip feta" id="walletChip" style="display:none">🧀 $FETA <b id="uiWalletFeta">—</b></div>
-    <div class="chip pend">⏳ PENDING <b id="uiFeta">0</b></div>
-    <div class="chip aura">✦ AURA <b id="uiAura">0</b></div>
-    <div class="chip rep">⚔ REP <b id="uiRep">0</b></div>
+    <div class="chip feta" id="walletChip" style="display:none"><img class="fetalogo chiplogo" alt="🧀"> $FETA <b id="uiWalletFeta">—</b></div>
     <div class="chip lvl">✪ LVL <b id="uiLvl">1</b></div>
-    <div class="chip" id="nameChip" style="display:none;pointer-events:auto">
-      <input id="nameInput" maxlength="15" placeholder="username">
-      <button id="nameSave">✔</button>
-    </div>
-    <div class="chip res">🏛 RESERVE <b id="uiRes">0</b></div>
-    <div class="chip">● LIVE <b id="uiLive" style="color:#57d7e8">—</b></div>
     <div class="chip"><b id="uiStrikes" style="color:#e5484d">⛓ 0/3</b></div>
     <div class="chip" id="heatwrap">HEAT <div id="heatbar"><div id="heatfill"></div></div></div>
+    <div class="chip" style="pointer-events:auto;cursor:pointer" onclick="phoneOpen?closePhone():openPhone()">📱 P</div>
+  </div>
+
+  <!-- the burner: press P -->
+  <div id="phone" class="hidden">
+    <div id="phoneBody">
+      <div id="phoneNotch"></div>
+      <img class="fetalogo" id="phoneLogo" alt="$FETA">
+      <div id="phoneView"><div id="phoneTrack">
+        <div class="ppage"><div class="pico">⏳</div><div class="plab">PENDING</div><b id="uiFeta">0</b><small>🧀 this season · pays out at the horn via the ClaimBank</small></div>
+        <div class="ppage"><div class="pico">✦</div><div class="plab">AURA</div><b id="uiAura">0</b><small>lifetime street cred · drives your level, can never be taken</small></div>
+        <div class="ppage"><div class="pico">⚔</div><div class="plab">REP</div><b id="uiRep">0</b><small>volatile · sets your emission share · wiped if you take the fall</small></div>
+        <div class="ppage"><div class="pico">🏛</div><div class="plab">RESERVE</div><b id="uiRes">—</b><small>the Feather-Ral treasury · live on-chain balance</small></div>
+        <div class="ppage"><div class="pico" style="color:#57d7e8">●</div><div class="plab">LIVE</div><b id="uiLive">—</b><div id="liveList"></div></div>
+        <div class="ppage"><div class="pico">🪪</div><div class="plab">USERNAME</div><b id="uNameShow">—</b>
+          <div id="nameChip" style="display:none"><input id="nameInput" maxlength="15" placeholder="username"><button id="nameSave">✔</button></div>
+          <small>connected wallets only</small></div>
+      </div></div>
+      <button class="parrow" id="pPrev">◀</button><button class="parrow" id="pNext">▶</button>
+      <div id="pDots"></div>
+    </div>
   </div>
   <div id="log"></div>
   <div id="touchUI">
     <div id="joyZone"><div id="joyKnob"></div></div>
     <button id="robBtn">✋ ROB</button>
     <div id="quickBtns">
-      <button id="qShop">🛒</button><button id="qGang">🏴</button><button id="qBoard">🏆</button><button id="qClaim">💰</button>
+      <button id="qShop">🛒</button><button id="qGang">🏴</button><button id="qBoard">🏆</button><button id="qClaim">💰</button><button id="qPhone">📱</button>
     </div>
   </div>
-  <div id="mobileUI">
-    <div id="joy"><div id="knob"></div></div>
-    <div id="mobMenu">
-      <button id="mShop">🧀</button><button id="mGang">🏴</button><button id="mBoard">🏆</button>
-    </div>
-    <button id="robBtn">ROB</button>
-  </div>
-  <div id="hint" class="hidden">WASD/Arrows move · Hold E to rob · B shop · G gang · L leaderboard</div>
+  <div id="hint" class="hidden">WASD/Arrows move · Hold E to rob · B shop · G gang · L leaderboard · P phone</div>
 
   <!-- Wallet gate -->
   <div id="wallet" class="overlay">
@@ -470,6 +502,8 @@ function wsConnect(){
           return p;
         });
         document.getElementById('uiLive').textContent=m.players.length;
+        document.getElementById('liveList').innerHTML=
+          m.players.map(p=>`${p.id===wsId?'▸ ':''}${p.label} · L${p.lvl} · ⚔${p.rep||0}`).join('<br>');
       }
     }catch(e){}
   };
@@ -724,20 +758,14 @@ const RAT_DURATION=120;  // seconds the 🐀 tag lasts (maps to days in producti
 
 /* ---------- rival gangs (simulated — becomes real players later) ---------- */
 let rivals=[];
-function spawnRivals(){
-  rivals=[
-    {name:'The Sheriffs',       rep:280, atk:3, def:3, nextAtk:150},
-    {name:'Gisbourne Syndicate',rep:190, atk:2, def:2, nextAtk:210},
-    {name:'Nottingham Kings',   rep:120, atk:1, def:1, nextAtk:270},
-  ];
-}
+function spawnRivals(){ rivals=[]; }   // retired: the streets belong to live crews now
 function gangLvl(){ return eco.gang ? 1+Math.floor(eco.wins/3) : 0; }
 function gangMult(){
   if(eco.ratT>0) return 1;                              // crew won't vouch for a rat
   return 1 + Math.min(0.25, 0.05*gangLvl());            // capped +25%
 }
-function repShare(){
-  const total = eco.rep + rivals.reduce((s,r)=>s+r.rep,0);
+function repShare(){   // your slice of emissions vs LIVE players
+  const total = eco.rep + livePlayers.reduce((s,p)=>s+(p.rep||0),0);
   return total>0 ? eco.rep/total : 0;
 }
 
@@ -818,7 +846,7 @@ function renderGang(){
       if(!nm){ toast('Your gang needs a name.', 'bad'); return; }
       if(!(await payFeta(GANG_COST,'GANG CHARTER'))) return;
       eco.gang={name:nm, aura:50};
-      sms('TUCK 📱', `${nm}, huh? Bold. The Sheriffs already heard. Watch your rep — and take some of theirs. ⚔`);
+      sms('TUCK 📱', `${nm}, huh? Bold. The whole city heard already. Fly the colors — and guard that rep. ⚔`);
       renderGang(); saveProfile();
     };
     d.appendChild(inp); d.appendChild(btn);
@@ -832,14 +860,9 @@ function renderGang(){
       ⚔ REP <b style="color:#ff8c5a">${Math.round(eco.rep)}</b> ·
       ATK <b>${eco.atk}</b> · DEF <b>${eco.def}</b>
       <span class="taxnote">(buy gear at The Fence — B)</span>`);
-    rivals.forEach((r,i)=>{
-      const d=box(`<b style="color:#e5484d">${r.name}</b> · REP ${Math.round(r.rep)} · DEF ${r.def}<br>
-        <span class="taxnote">Win: take ~12% of their REP. Lose: drop 6% of yours. Fee → Reserve. REP only — nobody's 🧀 gets touched.</span>`);
-      const btn=document.createElement('button'); btn.className='px';
-      btn.textContent=`RAID — ${fmtFeta(RAID_FEE)}`; btn.style.cssText='margin-top:6px;font-size:11px;padding:7px 14px';
-      btn.onclick=()=>raidRival(i);
-      d.appendChild(document.createElement('br')); d.appendChild(btn);
-    });
+    box(`<b style="color:#ff8c5a">⚔ CREW RAIDS</b><br>
+      <span class="taxnote">Live crew-vs-crew raids land with the War Update — real gangs, real REP on the line,
+      fees to the Reserve. Your ATK/DEF gear and raid wins already count.</span>`);
   }
 }
 async function raidRival(i){
@@ -869,10 +892,10 @@ function playersBoard(){          // LIVE connected players, ranked by personal 
     ...livePlayers.map(p=>({name:p.label, rep:p.rep||0, life:p.aura||0})),
   ].sort((a,b)=>b.rep-a.rep);
 }
-function gangsBoard(){            // crews, ranked by combined crew ⚔ REP (your crew = you, for now)
-  const list=rivals.map(r=>({name:r.name, rep:r.rep, aura:null}));
+function gangsBoard(){            // live crews (yours for now; crew sync lands with the War Update)
+  const list=[];
   if(eco.gang) list.push({name:eco.gang.name, rep:eco.rep, aura:Math.round(eco.gang.aura??50), you:true});
-  return list.sort((a,b)=>b.rep-a.rep);
+  return list;
 }
 let boardOpen=false;
 function openBoard(){ boardOpen=true; renderBoard(); document.getElementById('board').classList.remove('hidden'); }
@@ -902,7 +925,7 @@ function renderBoard(){
   };
   table(`STREET BOARD — LIVE players by ⚔ REP (giveaways pay here)${PRESENCE_WS_URL?'':' · offline'}`,
         playersBoard(), e=>`⚔ ${Math.round(e.rep)} · ✦ ${Math.round(e.life)}`);
-  table('GANG BOARD — crews by combined crew ⚔ REP (#1 gang takes a 5% Reserve bonus)',
+  table('GANG BOARD — crews by combined crew ⚔ REP · live crew standings land with the War Update',
         gangsBoard(), e=>`⚔ ${Math.round(e.rep)}${e.aura!=null?' · gang aura '+e.aura+'/100':''}`);
   const stats=document.createElement('div');
   stats.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:8px 16px;width:520px;max-width:92vw;font-size:11px;color:var(--dim);text-align:center';
@@ -950,19 +973,17 @@ function openBusted(){
   intro.innerHTML=`NSPD has you in the box. Three strikes — they can bury your name for good.
     <br><br><b style="color:var(--alert)">TAKE THE FALL:</b> your ⚔ REP goes to zero and you do a short stint.
     Emissions stay off until your REP climbs back over ${EMIT_MIN_REP}.
-    <br><b style="color:var(--feta)">SNITCH:</b> slide the detective ${fmtFeta(SNITCH_FEE)} (straight to the on-chain Reserve)
-    and give up a rival gang instead — <i>their</i> REP resets to zero and you walk. But you'll wear the 🐀 tag: rivals hit harder, your gang boost suspends, and your GANG AURA bleeds the whole time. If it hits zero, your own crew votes you out.`;
+    <br><b style="color:var(--feta)">SNITCH:</b> slide the detective ${fmtFeta(SNITCH_FEE)} (straight to the on-chain Reserve),
+    give up what you know, and walk. But you'll wear the 🐀 tag: your gang boost suspends and your GANG AURA bleeds the whole time it lasts. If it hits zero, your own crew votes you out.`;
   body.appendChild(intro);
   const fall=document.createElement('button'); fall.className='px';
   fall.style.background='#e5484d'; fall.textContent='TAKE THE FALL';
   fall.onclick=takeFall; body.appendChild(fall);
-  rivals.forEach((r,i)=>{
-    const btn=document.createElement('button'); btn.className='px';
-    btn.style.cssText='background:#2a3352;color:var(--ink);font-size:11px;padding:8px 16px';
-    btn.textContent=`🐀 SNITCH ON ${r.name.toUpperCase()} — ${fmtFeta(SNITCH_FEE)}`;
-    btn.onclick=()=>snitch(i);
-    body.appendChild(btn);
-  });
+  const rat=document.createElement('button'); rat.className='px';
+  rat.style.cssText='background:#2a3352;color:var(--ink);font-size:11px;padding:8px 16px';
+  rat.textContent=`🐀 SNITCH & WALK — ${fmtFeta(SNITCH_FEE)}`;
+  rat.onclick=()=>snitch();
+  body.appendChild(rat);
   document.getElementById('busted').classList.remove('hidden');
 }
 function takeFall(){
@@ -985,43 +1006,18 @@ function takeFall(){
     }
   },1000);
 }
-async function snitch(i){
-  const r=rivals[i];
+async function snitch(){
   if(!(await payFeta(SNITCH_FEE,'SNITCH PAYMENT'))) return;
-  r.rep=0;
   eco.ratT=RAT_DURATION;                 // 🐀 tagged — everybody knows
-  rivals.forEach(rv=>rv.nextAtk=Math.min(rv.nextAtk,45));
   if(eco.gang){ eco.gang.aura=Math.max(0,(eco.gang.aura??50)-10); }
   eco.strikes=0; eco.heat=0;
   bustedOpen=false;
   document.getElementById('busted').classList.add('hidden');
-  sms('TUCK 📱', `Word travels fast. ${r.name} just got their whole operation rolled up, and everybody knows whose mouth did it. Watch your corner — rats don't get warnings. 🐀`);
+  sms('TUCK 📱', `Word travels fast. Somebody's operation just got rolled up downtown, and the whole city knows whose mouth did it. Watch your corner — rats don't get warnings. 🐀`);
   saveProfile();
 }
 /* rival AI: they grow, and they come for your rep */
-function updateRivals(dt){
-  for(const r of rivals){
-    r.rep+=0.02*dt*60;                            // rivals grind too
-    r.nextAtk-=dt;
-    if(r.nextAtk<=0){
-      r.nextAtk=rand(120,240);
-      if(eco.rep<30) continue;                    // too small to bother
-      const ratBonus = eco.ratT>0 ? 25 : 0;              // rats are open season
-      const atkP=r.rep*0.5 + r.atk*25 + ratBonus + rand(0,60);
-      const defP=eco.rep*0.5 + eco.def*25 + rand(0,60);
-      if(atkP>defP){
-        const loss=Math.max(2,Math.round(eco.rep*Math.max(0.04, 0.10-eco.def*0.015)));
-        eco.rep=Math.max(0,eco.rep-loss); r.rep+=loss;
-        if(eco.ratT>0 && eco.gang) eco.gang.aura=Math.max(0,(eco.gang.aura??50)-8);
-        sms(r.name+' ⚔', `Your corner got hit while you were out. −${loss} ⚔ REP. ${eco.def>0?'Your defenses softened the blow.':'Maybe buy a guard dog.'}`);
-      } else {
-        const gain=Math.round(r.rep*0.03);
-        r.rep=Math.max(0,r.rep-gain); eco.rep+=gain;
-        sms('TUCK 📱', `${r.name} tried your block and your defenses ate them alive. +${gain} ⚔ REP. 🛡`);
-      }
-    }
-  }
-}
+function updateRivals(dt){}   // retired: live crew raids arrive with the War Update
 function renderShop(){
   const el=document.getElementById('items'); el.innerHTML='';
   items.forEach(it=>{
@@ -1046,8 +1042,41 @@ function closeShop(){ shopOpen=false; document.getElementById('shop').classList.
 
 /* ---------- Input ---------- */
 const keys={};
+/* ---------- the burner phone (P) ---------- */
+const FETA_LOGO='data:image/png;base64,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';
+document.querySelectorAll('.fetalogo').forEach(i=>i.src=FETA_LOGO);
+let phoneOpen=false, phonePage=0; const PHONE_PAGES=6;
+const dots=document.getElementById('pDots');
+for(let i=0;i<PHONE_PAGES;i++){ const d=document.createElement('span'); if(i===0)d.className='on'; dots.appendChild(d); }
+function phoneGo(i){
+  phonePage=((i%PHONE_PAGES)+PHONE_PAGES)%PHONE_PAGES;
+  document.getElementById('phoneTrack').style.transform=`translateX(-${phonePage*100}%)`;
+  [...dots.children].forEach((d,k)=>d.className=k===phonePage?'on':'');
+}
+function openPhone(){ phoneOpen=true;
+  document.getElementById('uNameShow').textContent=eco.username||(wallet.address?'unclaimed':'guest');
+  document.getElementById('phone').classList.remove('hidden'); }
+function closePhone(){ phoneOpen=false; document.getElementById('phone').classList.add('hidden'); }
+document.getElementById('pPrev').onclick=()=>phoneGo(phonePage-1);
+document.getElementById('pNext').onclick=()=>phoneGo(phonePage+1);
+{ // swipe between pages
+  let tx=null;
+  const pb=document.getElementById('phoneBody');
+  pb.addEventListener('touchstart',e=>{ tx=e.changedTouches[0].clientX; },{passive:true});
+  pb.addEventListener('touchend',e=>{
+    if(tx===null) return;
+    const dx=e.changedTouches[0].clientX-tx; tx=null;
+    if(Math.abs(dx)>36) phoneGo(phonePage+(dx<0?1:-1));
+  },{passive:true});
+}
+
 addEventListener('keydown',e=>{
   keys[e.key.toLowerCase()]=true;
+  if(e.key.toLowerCase()==='p' && started){ phoneOpen?closePhone():openPhone(); }
+  if(phoneOpen){
+    if(e.key==='ArrowLeft')  phoneGo(phonePage-1);
+    if(e.key==='ArrowRight') phoneGo(phonePage+1);
+  }
   if(e.key.toLowerCase()==='b' && started){ shopOpen?closeShop():openShop(); }
   if(e.key.toLowerCase()==='g' && started){ gangOpen?closeGang():openGang(); }
   if(e.key.toLowerCase()==='l' && started){ boardOpen?closeBoard():openBoard(); }
@@ -1118,6 +1147,7 @@ function trySetUsername(){
   if(!nameClean(n)){ toast('That name won\'t fly on these streets. Pick another.', 'bad'); return; }
   if(nameTaken(n)){ toast(`"${n}" is taken. Somebody beat you to it.`, 'bad'); return; }
   eco.username=n; saveProfile();
+  document.getElementById('uNameShow').textContent=n;
   if(ws && ws.readyState===1) ws.send(JSON.stringify({t:'rename', name:n}));
   toast(`✔ You're "${n}" now. The streets will remember it.`, 'res');
   snd.text();
@@ -1184,6 +1214,7 @@ robBtn.addEventListener('touchcancel',()=>touchRob=false);
 document.getElementById('qShop').onclick =()=>{ if(started) shopOpen?closeShop():openShop(); };
 document.getElementById('qGang').onclick =()=>{ if(started) gangOpen?closeGang():openGang(); };
 document.getElementById('qBoard').onclick=()=>{ if(started) boardOpen?closeBoard():openBoard(); };
+document.getElementById('qPhone').onclick=()=>{ if(started) phoneOpen?closePhone():openPhone(); };
 document.getElementById('qClaim').onclick=()=>{
   if(!started) return;
   if(nearBank()) claimFlow();
@@ -1268,7 +1299,7 @@ function collides(nx,ny){
   return false;
 }
 function update(dt){
-  if(!started||shopOpen||introOpen||gangOpen||bustedOpen||boardOpen) return;
+  if(!started||shopOpen||introOpen||gangOpen||bustedOpen||boardOpen||phoneOpen) return;
   // --- movement ---
   let dx=0,dy=0;
   if(keys['w']||keys['arrowup'])dy-=1; if(keys['s']||keys['arrowdown'])dy+=1;
