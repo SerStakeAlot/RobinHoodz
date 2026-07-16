@@ -530,6 +530,33 @@ function wsConnect(){
           toast(`⚡ ${m.by} cracked ${buildings[m.idx].label} — it's cleaned out for now.`);
         }
       }
+      // --- shared FEDERAL CONVOY: server-spawned, first hit wins the cheese ---
+      if(m.t==='convoySpawn'){
+        convoy = m.vertical
+          ? {x:900, y:100,  dir:1, route:{axis:'y',min:100, max:1110}, cool:0, robbed:false, live:true, id:m.id}
+          : {x:950, y:600,  dir:1, route:{axis:'x',min:950, max:1830}, cool:0, robbed:false, live:true, id:m.id};
+        toast('🚚 THE CONVOY IS ON THE STREETS — first hood to hit it takes the cheese', 'res');
+        sms('TUCK 📱', '🚚 FEDERAL CONVOY rolling through the district LIVE. Every hood on the streets sees this one — first to the curb gets paid.');
+      }
+      if(m.t==='convoyRobbed' && convoy && convoy.id===m.id && !convoy.robbed){
+        convoy.robbed=true;
+        if(m.winner===wsId){
+          const net=tax(m.gross);
+          eco.feta+=net;
+          const auraGain=Math.round(20*player.auraMult);
+          gainAura(auraGain);
+          if(copWitness()){ eco.heat=100; toast('👮 A COP SAW THE WHOLE THING — heat maxed!', 'bad'); }
+          else eco.heat=Math.min(100, eco.heat+35*player.heatMult);
+          eco.stats.convoys++; eco.stats.earned+=net;
+          snd.cash();
+          toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+        } else {
+          toast(`⚡ ${m.by} hit the convoy first — it's speeding off.`, 'bad');
+        }
+      }
+      if(m.t==='convoyGone' && convoy && convoy.id===m.id && !convoy.robbed){
+        convoy=null; toast('The convoy cleared the district.', 'bad');
+      }
       if(m.t==='roster'){
         const prev=new Map(livePlayers.map(p=>[p.id,p]));
         livePlayers=m.players.filter(p=>p.id!==wsId).map(p=>{
@@ -1377,18 +1404,22 @@ function update(dt){
     if(eco.ratT===0 && eco.gang) sms('TUCK 📱', 'Tag\'s faded. The city\'s moved on to fresher gossip. Your crew hasn\'t forgotten, though — rebuild that gang aura. 🐀→🕊');
   }
   // --- convoy event lifecycle ---
-  convoyTimer-=dt;
-  if(!convoy && !convoyAnnounced && convoyTimer<=12){
-    convoyAnnounced=true;
-    sms('TUCK 📱', '🚚 FEDERAL CONVOY inbound — 12 seconds. Payroll on board. Meet it at the curb.');
-  }
-  if(!convoy && convoyTimer<=0){
-    const vertical=Math.random()<0.5;
-    convoy = vertical
-      ? {x:900, y:100,  dir:1, route:{axis:'y',min:100, max:1110}, cool:0, robbed:false}
-      : {x:950, y:600,  dir:1, route:{axis:'x',min:950, max:1830}, cool:0, robbed:false};
-    convoyTimer=CONVOY_INTERVAL; convoyAnnounced=false;
-    toast('🚚 THE CONVOY IS ON THE STREETS', 'res');
+  // When the live socket is up the SERVER spawns one shared convoy for everyone
+  // (first hit wins). The local timer only runs as an offline fallback.
+  if(!(ws && ws.readyState===1 && wsId)){
+    convoyTimer-=dt;
+    if(!convoy && !convoyAnnounced && convoyTimer<=12){
+      convoyAnnounced=true;
+      sms('TUCK 📱', '🚚 FEDERAL CONVOY inbound — 12 seconds. Payroll on board. Meet it at the curb.');
+    }
+    if(!convoy && convoyTimer<=0){
+      const vertical=Math.random()<0.5;
+      convoy = vertical
+        ? {x:900, y:100,  dir:1, route:{axis:'y',min:100, max:1110}, cool:0, robbed:false}
+        : {x:950, y:600,  dir:1, route:{axis:'x',min:950, max:1830}, cool:0, robbed:false};
+      convoyTimer=CONVOY_INTERVAL; convoyAnnounced=false;
+      toast('🚚 THE CONVOY IS ON THE STREETS', 'res');
+    }
   }
   if(convoy){
     const sp=(convoy.robbed?3.2:1.5)*dt*60;
@@ -1484,16 +1515,25 @@ function update(dt){
     robProg+=dt/(robKind==='mark'?1.1:(robKind==='convoy'?1.8:3.0));
     if(robProg>=1){
       if(robKind==='convoy'){
-        const gross=Math.round(rand(80,160));
-        const net=tax(gross);
-        eco.feta+=net;
-        const auraGain=Math.round(20*player.auraMult);
-        gainAura(auraGain);
-        if(copWitness()){ eco.heat=100; toast('👮 A COP SAW THE WHOLE THING — heat maxed!', 'bad'); }
-        else eco.heat=Math.min(100, eco.heat+35*player.heatMult);
-        robTarget.robbed=true; snd.cash();
-        eco.stats.convoys++; eco.stats.earned+=net;
-        toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+        if(robTarget.live){
+          // shared convoy: the SERVER adjudicates who hit it first
+          if(!robTarget.claimPending && ws && ws.readyState===1){
+            robTarget.claimPending=true;
+            ws.send(JSON.stringify({t:'convoyHit', id:robTarget.id}));
+            toast('🚚 You hit the convoy — calling it in…', 'res');
+          }
+        } else {
+          const gross=Math.round(rand(80,160));
+          const net=tax(gross);
+          eco.feta+=net;
+          const auraGain=Math.round(20*player.auraMult);
+          gainAura(auraGain);
+          if(copWitness()){ eco.heat=100; toast('👮 A COP SAW THE WHOLE THING — heat maxed!', 'bad'); }
+          else eco.heat=Math.min(100, eco.heat+35*player.heatMult);
+          robTarget.robbed=true; snd.cash();
+          eco.stats.convoys++; eco.stats.earned+=net;
+          toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+        }
       } else if(robKind==='building'){
         const gross=Math.round(rand(robTarget.heist[0],robTarget.heist[1]));
         const net=tax(gross);
