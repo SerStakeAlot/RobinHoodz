@@ -188,6 +188,7 @@ function nearBank(){
 
   <div id="hud" class="hidden">
     <div class="chip feta">🧀 $FETA <b id="uiFeta">0</b></div>
+    <div class="chip" id="chainChip" style="display:none">🧀 WALLET <b id="uiChain" style="color:#f2c341">—</b></div>
     <div class="chip aura">✦ AURA <b id="uiAura">0</b></div>
     <div class="chip rep">⚔ REP <b id="uiRep">0</b></div>
     <div class="chip lvl">✪ LVL <b id="uiLvl">1</b></div>
@@ -302,13 +303,13 @@ cx.imageSmoothingEnabled = false;
 const CHAIN_CONFIG = {
   chainId: '0x1237',                              // 4663 — verify against official docs
   chainName: 'Robinhood Chain',
-  rpcUrls: ['https://REPLACE-WITH-OFFICIAL-RPC'], // ★ paste the official RPC URL
+  rpcUrls: ['https://rpc.mainnet.chain.robinhood.com'],
   nativeCurrency: { name:'Ether', symbol:'ETH', decimals:18 },
   blockExplorerUrls: ['https://REPLACE-WITH-EXPLORER'],
 };
 const FETA_TOKEN_ADDRESS = '0xb04005a74f036f65bd1cdf633530225c826d7777';   // ★ $FETA ERC-20 with 1% Reserve tax
-const RESERVE_ADDRESS    = '0xREPLACE_WHEN_DEPLOYED';   // ★ Feather-Ral Reserve treasury
-const CLAIM_BANK_ADDRESS = '0xREPLACE_WHEN_DEPLOYED';   // ★ FetaClaimBank contract (season payouts)
+const RESERVE_ADDRESS    = '0x598df76018241b30cd7a672600A89cE7d19add16';   // ★ Feather-Ral Reserve treasury
+const CLAIM_BANK_ADDRESS = '0xEB40BF91a7706fA6274F0dEe1a047727a5143A0A';   // ★ FetaClaimBank contract (season payouts)
 const SEL_CLAIMABLE='402914f5', SEL_CLAIM='4e71d92d';   // claimable(address), claim()
 
 /* ---------- storage: localStorage when hosted, memory fallback in sandboxes ---------- */
@@ -385,9 +386,28 @@ function proceedFromWallet(addr){
   document.getElementById('wallet').classList.add('hidden');
   document.getElementById('uiWallet').textContent = shortAddr(addr);
   if(addr) document.getElementById('nameChip').style.display='flex';
+  if(addr) refreshChainBalance();
   const p = loadProfile();
   if(p && Number.isInteger(p.charIdx)) enterGame(p.charIdx, p);
   else document.getElementById('title').classList.remove('hidden');
+}
+
+/* ---------- live on-chain $FETA balance (display-only — never touches eco) ---------- */
+async function refreshChainBalance(){
+  if(!wallet.address) return;
+  const eth = getProvider();
+  if(!eth) return;
+  try{
+    const data = '0x70a08231' + wallet.address.slice(2).toLowerCase().padStart(64,'0');
+    const res  = await eth.request({ method:'eth_call',
+      params:[{ to: FETA_TOKEN_ADDRESS, data }, 'latest'] });
+    const bal  = BigInt(res);
+    const human = Number(bal / 10n**16n) / 100;   // BigInt math first — never float the raw value
+    document.getElementById('uiChain').textContent = human.toLocaleString();
+    document.getElementById('chainChip').style.display = 'flex';
+  }catch(e){
+    document.getElementById('uiChain').textContent = '—';
+  }
 }
 document.getElementById('btnConnect').onclick = connectWallet;
 document.getElementById('btnGuest').onclick   = ()=>proceedFromWallet(null);
@@ -401,6 +421,7 @@ document.getElementById('btnWipe').onclick    = ()=>{
   wstatus('✓ All saved profiles deleted. Connect or play as guest to start a brand-new run.');
 };
 setInterval(saveProfile, 5000);                       // autosave
+setInterval(refreshChainBalance, 30000);              // live wallet balance
 addEventListener('beforeunload', saveProfile);
 
 /* ---------- Pixel sprites ----------
@@ -1094,6 +1115,7 @@ async function claimFlow(){
       params:[{from:wallet.address, to:CLAIM_BANK_ADDRESS, data:'0x'+SEL_CLAIM}]});
     sms('FIRST FEATHER BANK 🏦', `Withdrawal processed: ${human} $FETA to ${shortAddr(wallet.address)}. Funny how you rob us all week and bank with us on Sunday. Pleasure doing business.`);
     snd.cash();
+    setTimeout(refreshChainBalance, 5000);
   }catch(e){ toast('Claim cancelled or failed.', 'bad'); }
 }
 function nearBank(){
