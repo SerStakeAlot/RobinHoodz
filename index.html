@@ -238,7 +238,6 @@
       <div id="phoneNotch"></div>
       <img class="fetalogo" id="phoneLogo" alt="$FETA">
       <div id="phoneView"><div id="phoneTrack">
-        <div class="ppage"><div class="pico">⏳</div><div class="plab">PENDING</div><b id="uiFeta">0</b><small>🧀 this season · pays at the horn via the ClaimBank · Street License required</small></div>
         <div class="ppage"><div class="pico">✦</div><div class="plab">AURA</div><b id="uiAura">0</b><small>lifetime street cred · drives your level, can never be taken</small></div>
         <div class="ppage"><div class="pico">⚔</div><div class="plab">REP</div><b id="uiRep">0</b><small>volatile · sets your emission share · wiped if you take the fall</small></div>
         <div class="ppage"><div class="pico">🏛</div><div class="plab">RESERVE</div><b id="uiRes">—</b><small>the Feather-Ral treasury · trade tax accrues in ETH · live on-chain</small></div>
@@ -455,7 +454,7 @@ const profileKey = () => 'robinhoodz:' + (wallet.address||'guest').toLowerCase()
 function saveProfile(){
   if(!started) return;
   store.set(profileKey(), JSON.stringify({
-    charIdx: player.charIdx, feta: eco.feta, lifetime: eco.lifetime, rep: eco.rep,
+    charIdx: player.charIdx, lifetime: eco.lifetime, rep: eco.rep,
     reserve: eco.reserve, milestone: eco.milestone, lvl: eco.lvl,
     atk: eco.atk, def: eco.def, wins: eco.wins, gang: eco.gang, strikes: eco.strikes, ratT: Math.round(eco.ratT),
     season: eco.season, seasonT: Math.round(eco.seasonT), stats: eco.stats,
@@ -641,15 +640,15 @@ function wsConnect(){
       if(m.t==='convoyRobbed' && convoy && convoy.id===m.id && !convoy.robbed){
         convoy.robbed=true;
         if(m.winner===wsId){
-          const net=tax(m.gross);
-          eco.feta+=net;
+          const net=Math.round(m.gross);
+          eco.rep+=net;
           const auraGain=Math.round(20*player.auraMult);
           gainAura(auraGain);
           if(copWitness()){ eco.heat=100; toast('👮 A COP SAW THE WHOLE THING — heat maxed!', 'bad'); }
           else eco.heat=Math.min(100, eco.heat+35*player.heatMult);
           eco.stats.convoys++; eco.stats.earned+=net;
           snd.cash();
-          toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+          toast(`🚚 CONVOY HIT: +${net} ⚔ REP · +${auraGain} ✦`, 'res');
         } else {
           toast(`⚡ ${m.by} hit the convoy first — it's speeding off.`, 'bad');
         }
@@ -907,10 +906,10 @@ function spawnWorld(){
 const player={x:120,y:120,speed:2.6,pal:null,heatMult:1,auraMult:1};
 /* AURA is split:
    lifetime — soulbound street cred: levels & unlocks, only goes UP
-   rep      — volatile: raidable, drives your share of $FETA emissions
-   $FETA only enters through convoys, building heists, emissions & airdrops —
-   robbing people earns respect, not cheese. */
-const eco={feta:0, lifetime:0, rep:0, reserve:0, heat:0, milestone:100, lvl:1,
+   rep      — volatile: raidable, drives your season standing & payout share
+   There is NO in-game $FETA. The token exists only on-chain in your wallet;
+   season payouts are funded by the Reserve via the ClaimBank, ranked by REP. */
+const eco={lifetime:0, rep:0, reserve:0, heat:0, milestone:100, lvl:1,
            atk:0, def:0, wins:0, gang:null, strikes:0, ratT:0,
            season:1, seasonT:600, stats:{robberies:0, convoys:0, heists:0, earned:0}};
 const EMIT_MIN_REP=20;
@@ -1068,8 +1067,8 @@ function renderBoard(){
   const head=document.createElement('div');
   head.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:10px 16px;width:520px;max-width:92vw;font-size:12px;text-align:center';
   head.innerHTML=`Season ends in <b style="color:var(--feta)">${Math.floor(eco.seasonT/60)}:${String(Math.floor(eco.seasonT%60)).padStart(2,'0')}</b>
-    · Your PENDING this season: <b style="color:var(--feta)">${eco.feta.toFixed(2)} 🧀</b><br>
-    <span class="taxnote">At the horn, pending payouts load into the on-chain ClaimBank — collect at the First Feather Bank. The Reserve chip up top is the live on-chain treasury.</span>`;
+    · Your ⚔ REP this season: <b style="color:var(--feta)">${Math.round(eco.rep)}</b><br>
+    <span class="taxnote">At the horn, the Reserve funds the ClaimBank and payouts load by street-board rank — collect at the First Feather Bank. The Reserve chip up top is the live on-chain treasury. No $FETA exists in-game; the token lives in your wallet only.</span>`;
   el.appendChild(head);
   const table=(title,rows,fmt)=>{
     const t=document.createElement('div');
@@ -1092,19 +1091,18 @@ function renderBoard(){
         gangsBoard(), e=>`⚔ ${Math.round(e.rep)}${e.aura!=null?' · gang aura '+e.aura+'/100':''}`);
   const stats=document.createElement('div');
   stats.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:8px 16px;width:520px;max-width:92vw;font-size:11px;color:var(--dim);text-align:center';
-  stats.innerHTML=`Your season: ${eco.stats.robberies} robberies · ${eco.stats.convoys} convoys · ${eco.stats.heists} heists · ${eco.stats.earned.toFixed(0)} 🧀 earned lifetime`;
+  stats.innerHTML=`Your season: ${eco.stats.robberies} robberies · ${eco.stats.convoys} convoys · ${eco.stats.heists} heists · ⚔ ${eco.stats.earned.toFixed(0)} REP earned lifetime`;
   el.appendChild(stats);
 }
 function endSeason(){
   const entries=playersBoard();
   const myIdx=entries.findIndex(e=>e.you);
-  const finalPending=eco.feta;
+  const finalRep=Math.round(eco.rep);
   let gangLine='';
   const gb=gangsBoard();
   if(eco.gang && gb.length && gb[0].you)
     gangLine=` ${eco.gang.name} finished the #1 crew — champion bonus will be added to your payout.`;
-  sms('FEATHER-RAL RESERVE 🏛', `SEASON ${eco.season} FINAL: #${myIdx+1} of ${entries.length} on the street board · ${finalPending.toFixed(2)} 🧀 PENDING submitted for payout. The ClaimBank loads within 24h — collect at the First Feather Bank [C].${gangLine} New season starts NOW.`);
-  eco.feta=0;                                   // pending resets; real payout arrives via ClaimBank
+  sms('FEATHER-RAL RESERVE 🏛', `SEASON ${eco.season} FINAL: #${myIdx+1} of ${entries.length} on the street board · ⚔ ${finalRep} REP submitted for ranking. The Reserve funds the ClaimBank within 24h — collect at the First Feather Bank [C].${gangLine} New season starts NOW.`);
   eco.season++; eco.seasonT=SEASON_LEN;
   if(boardOpen) renderBoard();
   saveProfile();
@@ -1113,10 +1111,10 @@ function endSeason(){
 /* ---------- getting caught ---------- */
 function bustPlayer(){
   snd.cells();
-  const fine=Math.round(eco.feta*0.2);
-  if(fine>0){ eco.feta-=fine;
-    toast(`🚨 CAUGHT. ${fine} 🧀 docked from your PENDING payout.`, 'bad'); }
-  else toast('🚨 Caught, but your pending tab was empty. Embarrassing.', 'bad');
+  const fine=Math.round(eco.rep*0.2);
+  if(fine>0){ eco.rep-=fine;
+    toast(`🚨 CAUGHT. ${fine} ⚔ REP docked — your season standing takes the hit.`, 'bad'); }
+  else toast('🚨 Caught, but you had no rep to dock. Embarrassing.', 'bad');
   eco.heat=0;
   eco.strikes++;
   if(eco.strikes>=3){ openBusted(); }
@@ -1208,7 +1206,7 @@ const keys={};
 /* ---------- the burner phone (P) ---------- */
 const FETA_LOGO='data:image/png;base64,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';
 document.querySelectorAll('.fetalogo').forEach(i=>i.src=FETA_LOGO);
-let phoneOpen=false, phonePage=0; const PHONE_PAGES=6;
+let phoneOpen=false, phonePage=0; const PHONE_PAGES=5;
 const dots=document.getElementById('pDots');
 for(let i=0;i<PHONE_PAGES;i++){ const d=document.createElement('span'); if(i===0)d.className='on'; dots.appendChild(d); }
 function phoneGo(i){
@@ -1401,7 +1399,6 @@ function enterGame(charIdx, restore){
   player.pal=c.pal; player.charIdx=charIdx; player.frames=c.frames; player.grid=c.grid;
   started=true; spawnWorld();
   if(restore){
-    eco.feta=restore.feta||0;
     // legacy saves stored a single 'aura' — split it
     eco.lifetime = restore.lifetime ?? restore.aura ?? 0;
     eco.rep      = restore.rep      ?? Math.round((restore.aura??0)*0.6);
@@ -1427,7 +1424,7 @@ function enterGame(charIdx, restore){
   document.getElementById('hint').classList.remove('hidden');
   wsConnect();
   if(restore){
-    toast(`Welcome back, ${c.name}. ${shortAddr(wallet.address)} · LVL ${eco.lvl} · ${eco.feta.toFixed(0)} 🧀 restored.`);
+    toast(`Welcome back, ${c.name}. ${shortAddr(wallet.address)} · LVL ${eco.lvl} · ⚔ ${Math.round(eco.rep)} REP restored.`);
   } else {
     introOpen=true;
     document.getElementById('loreBio').innerHTML=c.bio;
@@ -1478,13 +1475,13 @@ function update(dt){
   if(!collides(nx,player.y)) player.x=nx;
   if(!collides(player.x,ny)) player.y=ny;
 
-  // --- $FETA emissions: rep share × gang boost, taxed 1% — but only above the REP floor ---
+  // --- ⚔ REP emissions: rep share × gang boost — but only above the REP floor ---
   const share=repShare();
   if(share>0 && eco.rep>=EMIT_MIN_REP){
-    emitAcc += 0.6*share*gangMult()*dt;     // 0.6 🧀/sec city-wide pool
+    emitAcc += 0.6*share*gangMult()*dt;     // 0.6 ⚔/sec city-wide pool
     if(emitAcc>=1){
       const whole=Math.floor(emitAcc); emitAcc-=whole;
-      const em=tax(whole); eco.feta+=em; eco.stats.earned+=em;
+      eco.rep+=whole; eco.stats.earned+=whole;
     }
   }
   // --- rival gangs grind and raid ---
@@ -1624,21 +1621,19 @@ function update(dt){
             toast('🚚 You hit the convoy — calling it in…', 'res');
           }
         } else {
-          const gross=Math.round(rand(80,160));
-          const net=tax(gross);
-          eco.feta+=net;
+          const net=Math.round(rand(80,160));
+          eco.rep+=net;
           const auraGain=Math.round(20*player.auraMult);
           gainAura(auraGain);
           if(copWitness()){ eco.heat=100; toast('👮 A COP SAW THE WHOLE THING — heat maxed!', 'bad'); }
           else eco.heat=Math.min(100, eco.heat+35*player.heatMult);
           robTarget.robbed=true; snd.cash();
           eco.stats.convoys++; eco.stats.earned+=net;
-          toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+          toast(`🚚 CONVOY HIT: +${net} ⚔ REP · +${auraGain} ✦`, 'res');
         }
       } else if(robKind==='building'){
-        const gross=Math.round(rand(robTarget.heist[0],robTarget.heist[1]));
-        const net=tax(gross);
-        eco.feta+=net;
+        const net=Math.round(rand(robTarget.heist[0],robTarget.heist[1]));
+        eco.rep+=net;
         const auraGain=Math.round(45*player.auraMult);
         gainAura(auraGain);
         if(copWitness()){ eco.heat=100; toast('👮 CRACKED IT IN FRONT OF A COP. Bold. Heat maxed.', 'bad'); }
@@ -1647,7 +1642,7 @@ function update(dt){
         if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'rob',kind:'building',idx:buildings.indexOf(robTarget),cool:60}));
         snd.cash();
         eco.stats.heists++; eco.stats.earned+=net;
-        toast(`🏦 HEIST: cracked ${robTarget.label} — +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+        toast(`🏦 HEIST: cracked ${robTarget.label} — +${net} ⚔ REP · +${auraGain} ✦`, 'res');
       } else {
         const auraGain=Math.round(robTarget.aura*player.auraMult);
         gainAura(auraGain);
@@ -1664,7 +1659,6 @@ function update(dt){
   } else robProg=Math.max(0,robProg-dt*2);
 
   // --- HUD ---
-  document.getElementById('uiFeta').textContent = eco.feta.toFixed(2);
   document.getElementById('uiAura').textContent=Math.round(eco.lifetime);
   document.getElementById('uiRep').textContent=Math.round(eco.rep);
   document.getElementById('uiStrikes').textContent='⛓ '+eco.strikes+'/3'+(eco.ratT>0?' · 🐀 '+Math.ceil(eco.ratT)+'s':'');
