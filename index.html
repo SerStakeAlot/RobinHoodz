@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RobinHoodz — Rob the Rich. Feed the Reserve.</title>
+<style>
+  @font-face { font-family: 'PixelFallback'; src: local('Courier New'); }
+  :root{
+    --night:#0d1226; --asphalt:#161d33; --panel:#0a0f1f;
+    --feta:#f2c341; --hood:#4caf6d; --whale:#5a8fd6; --alert:#e5484d;
+    --ink:#e8ecf5; --dim:#8b93ad;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--night); color:var(--ink);
+    font-family:'Courier New', monospace; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #wrap{position:relative; width:960px; max-width:100vw;}
+  canvas{display:block; width:100%; image-rendering:pixelated; background:var(--asphalt); border:3px solid #000; box-shadow:0 0 0 3px #2a3352, 0 24px 60px rgba(0,0,0,.6);}
+  /* ---------- HUD ---------- */
+  #hud{
+    position:absolute; top:0; left:0; right:0; display:flex; gap:8px;
+    padding:10px 12px; pointer-events:none; font-size:12px; letter-spacing:1px;
+  }
+  .chip{
+    background:rgba(10,15,31,.88); border:2px solid #2a3352; padding:6px 10px;
+    display:flex; align-items:center; gap:6px; text-transform:uppercase;
+  }
+  .chip b{font-size:14px;}
+  .feta b{color:var(--feta);} .aura b{color:#c58cff;} .res b{color:var(--hood);} .lvl b{color:#7ee08a;} .rep b{color:#ff8c5a;}
+  #heatwrap{margin-left:auto; min-width:150px;}
+  #heatbar{width:90px; height:8px; background:#232b47; border:1px solid #000;}
+  #heatfill{height:100%; width:0%; background:var(--alert); transition:width .2s;}
+  #log{
+    position:absolute; bottom:14px; left:14px; max-width:420px; pointer-events:none;
+    display:flex; flex-direction:column-reverse; gap:4px; font-size:12px;
+    z-index:50;   /* above overlays so raid results & texts always show */
+  }
+  .overlay{ z-index:10; }
+  .toast{background:rgba(10,15,31,.9); border-left:3px solid var(--feta); padding:5px 9px; animation:fade 5s forwards;}
+  .toast.bad{border-left-color:var(--alert);}
+  .toast.res{border-left-color:var(--hood);}
+  .toast.sms{border-left-color:#57d7e8; animation:fade 9s forwards; max-width:420px;}
+  .toast.sms b{color:#57d7e8; display:block; margin-bottom:2px;}
+  .lorebox{
+    max-width:660px; text-align:left; font-size:13px; line-height:1.75;
+    background:var(--panel); border:2px solid #2a3352; padding:20px 24px;
+  }
+  .lorebox h2{color:var(--feta); letter-spacing:3px; margin-bottom:10px; font-size:18px;}
+  .lorebox .bio{color:var(--dim); border-top:1px solid #2a3352; margin-top:12px; padding-top:12px;}
+  .lorebox .bio b{color:var(--hood);}
+  @keyframes fade{0%,80%{opacity:1}100%{opacity:0}}
+  #hint{
+    position:absolute; bottom:14px; right:14px; font-size:11px; color:var(--dim);
+    background:rgba(10,15,31,.85); padding:6px 10px; border:1px solid #2a3352;
+  }
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:absolute; inset:0; background:rgba(7,10,22,.94);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+    text-align:center; padding:20px;
+  }
+  .hidden{display:none !important;}
+  h1{
+    font-size:44px; letter-spacing:4px; color:var(--feta);
+    text-shadow:4px 4px 0 #000, -2px -2px 0 var(--hood);
+  }
+  .tag{color:var(--dim); font-size:13px; letter-spacing:2px; text-transform:uppercase;}
+  #chars{display:flex; gap:18px;}
+  .card{
+    background:var(--panel); border:3px solid #2a3352; padding:14px 18px 12px;
+    cursor:pointer; transition:transform .1s, border-color .1s; width:150px;
+  }
+  .card:hover{transform:translateY(-4px); border-color:var(--feta);}
+  .card canvas{width:96px; height:128px; margin:0 auto 8px; border:none; box-shadow:none; background:transparent;}
+  .card p{font-size:12px; letter-spacing:1px; text-transform:uppercase;}
+  .card small{color:var(--dim); font-size:10px; display:block; margin-top:4px; text-transform:none;}
+  /* ---------- Shop ---------- */
+  #shop{gap:14px;}
+  #shop h2{color:var(--feta); letter-spacing:3px;}
+  .item{
+    background:var(--panel); border:2px solid #2a3352; width:420px; max-width:90vw;
+    padding:10px 14px; display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer; font-size:13px; text-align:left;
+  }
+  .item:hover{border-color:var(--feta);}
+  .item.owned{opacity:.45; cursor:default;}
+  .price{color:var(--feta); font-weight:bold; white-space:nowrap; margin-left:12px;}
+  .taxnote{color:var(--dim); font-size:11px;}
+  /* ---------- Mobile controls ---------- */
+  #mobileUI{position:absolute; inset:0; pointer-events:none; z-index:40; display:none;}
+  #mobileUI.on{display:block;}
+  #joy{
+    position:absolute; left:22px; bottom:70px; width:120px; height:120px;
+    border-radius:50%; background:rgba(10,15,31,.55); border:2px solid #2a3352;
+    pointer-events:auto; touch-action:none;
+  }
+  #knob{
+    position:absolute; left:33px; top:33px; width:54px; height:54px; border-radius:50%;
+    background:#2a3352; border:2px solid #4a5680;
+  }
+  #robBtn{
+    position:absolute; right:26px; bottom:78px; width:92px; height:92px; border-radius:50%;
+    background:rgba(242,195,65,.92); color:#1a1405; font-family:inherit; font-weight:bold;
+    font-size:13px; letter-spacing:1px; border:3px solid #000; box-shadow:0 4px 0 #000;
+    pointer-events:auto; touch-action:none;
+  }
+  #robBtn:active{transform:translateY(3px); box-shadow:0 1px 0 #000;}
+  #mobMenu{
+    position:absolute; right:26px; bottom:190px; display:flex; gap:8px; pointer-events:auto;
+  }
+  #mobMenu button{
+    width:44px; height:44px; border-radius:8px; background:rgba(10,15,31,.85);
+    color:var(--ink); border:2px solid #2a3352; font-family:inherit; font-size:15px; touch-action:manipulation;
+  }
+  button.px{
+    background:var(--hood); color:#04120a; border:none; font-family:inherit;
+    font-size:13px; letter-spacing:2px; padding:10px 22px; cursor:pointer;
+    box-shadow:3px 3px 0 #000; text-transform:uppercase; font-weight:bold;
+  }
+  button.px:hover{filter:brightness(1.1);}
+  /* ---------- season claim at the First Feather Bank ---------- */
+async function claimFlow(){
+  if(!wallet.address){ toast('Connect a wallet to claim season winnings.', 'bad'); return; }
+  if(CLAIM_BANK_ADDRESS.startsWith('0xREPLACE')){ toast('The claim window opens after the token launches.', 'bad'); return; }
+  const eth=getProvider();
+  if(!eth){ toast('No wallet provider found.', 'bad'); return; }
+  try{
+    const data='0x'+SEL_CLAIMABLE+wallet.address.slice(2).toLowerCase().padStart(64,'0');
+    const res=await eth.request({method:'eth_call',params:[{to:CLAIM_BANK_ADDRESS,data},'latest']});
+    const amt=BigInt(res);
+    if(amt===0n){ toast('Nothing on the books for you this season. Climb the board.', 'bad'); return; }
+    const human=Number(amt/10n**14n)/10000;
+    toast(`🏦 ${human} $FETA on the books. Confirm the withdrawal in your wallet…`, 'res');
+    await eth.request({method:'eth_sendTransaction',
+      params:[{from:wallet.address, to:CLAIM_BANK_ADDRESS, data:'0x'+SEL_CLAIM}]});
+    sms('FIRST FEATHER BANK 🏦', `Withdrawal processed: ${human} $FETA to ${shortAddr(wallet.address)}. Funny how you rob us all week and bank with us on Sunday. Pleasure doing business.`);
+    snd.cash();
+  }catch(e){ toast('Claim cancelled or failed.', 'bad'); }
+}
+function nearBank(){
+  const b=buildings[0];   // FIRST FEATHER BANK
+  return Math.hypot(b.x+b.w/2-player.x, b.y+b.h+10-player.y)<60;
+}
+
+/* ---------- touch controls ---------- */
+  #touchUI{position:absolute; inset:0; pointer-events:none; display:none; z-index:40;}
+  body.touch #touchUI{display:block;}
+  #joyZone{
+    position:absolute; left:22px; bottom:70px; width:130px; height:130px;
+    border-radius:50%; background:rgba(42,51,82,.35); border:2px solid rgba(90,143,214,.35);
+    pointer-events:auto; touch-action:none;
+  }
+  #joyKnob{
+    position:absolute; left:40px; top:40px; width:50px; height:50px; border-radius:50%;
+    background:rgba(232,236,245,.5); border:2px solid rgba(232,236,245,.7);
+  }
+  #robBtn{
+    position:absolute; right:26px; bottom:78px; width:92px; height:92px; border-radius:50%;
+    background:rgba(242,195,65,.85); color:#241f00; font-family:inherit; font-weight:bold;
+    font-size:14px; letter-spacing:1px; border:3px solid #000; box-shadow:3px 3px 0 #000;
+    pointer-events:auto; touch-action:none;
+  }
+  #robBtn:active{filter:brightness(1.15);}
+  #quickBtns{
+    position:absolute; right:26px; bottom:186px; display:flex; gap:8px; pointer-events:auto;
+  }
+  #quickBtns button{
+    width:44px; height:44px; border-radius:8px; background:rgba(10,15,31,.9); color:var(--ink);
+    border:2px solid #2a3352; font-family:inherit; font-size:13px; font-weight:bold; touch-action:manipulation;
+  }
+  #nameChip input{
+    font-family:inherit; background:#0d1226; border:1px solid #2a3352; color:var(--ink);
+    padding:2px 6px; width:110px; font-size:11px;
+  }
+  #nameChip button{
+    background:var(--hood); border:none; color:#04120a; font-family:inherit; font-size:11px;
+    padding:3px 7px; cursor:pointer; font-weight:bold;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="600"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="chip feta">🧀 $FETA <b id="uiFeta">0</b></div>
+    <div class="chip aura">✦ AURA <b id="uiAura">0</b></div>
+    <div class="chip rep">⚔ REP <b id="uiRep">0</b></div>
+    <div class="chip lvl">✪ LVL <b id="uiLvl">1</b></div>
+    <div class="chip"><b id="uiWallet" style="color:#8b93ad;font-size:11px">GUEST</b></div>
+    <div class="chip" id="nameChip" style="display:none;pointer-events:auto">
+      <input id="nameInput" maxlength="15" placeholder="username">
+      <button id="nameSave">✔</button>
+    </div>
+    <div class="chip res">🏛 RESERVE <b id="uiRes">0</b></div>
+    <div class="chip"><b id="uiStrikes" style="color:#e5484d">⛓ 0/3</b></div>
+    <div class="chip" id="heatwrap">HEAT <div id="heatbar"><div id="heatfill"></div></div></div>
+  </div>
+  <div id="log"></div>
+  <div id="touchUI">
+    <div id="joyZone"><div id="joyKnob"></div></div>
+    <button id="robBtn">✋ ROB</button>
+    <div id="quickBtns">
+      <button id="qShop">🛒</button><button id="qGang">🏴</button><button id="qBoard">🏆</button><button id="qClaim">💰</button>
+    </div>
+  </div>
+  <div id="mobileUI">
+    <div id="joy"><div id="knob"></div></div>
+    <div id="mobMenu">
+      <button id="mShop">🧀</button><button id="mGang">🏴</button><button id="mBoard">🏆</button>
+    </div>
+    <button id="robBtn">ROB</button>
+  </div>
+  <div id="hint" class="hidden">WASD/Arrows move · Hold E to rob · B shop · G gang · L leaderboard</div>
+
+  <!-- Wallet gate -->
+  <div id="wallet" class="overlay">
+    <h1>ROBINHOODZ</h1>
+    <div class="tag">Rob the rich · Feed the Feather-Ral Reserve · Earn $FETA</div>
+    <button class="px" id="btnConnect">🔗 Connect Wallet</button>
+    <button class="px" id="btnGuest" style="background:#2a3352;color:var(--ink)">Play as Guest</button>
+    <button class="px" id="btnWipe" style="background:transparent;color:var(--dim);box-shadow:none;border:1px solid #2a3352;font-size:11px;padding:7px 14px">🗑 Delete saved profiles &amp; start fresh</button>
+    <div class="tag" id="wstatus">Connect to save your run to your address — or run the streets anonymous.</div>
+    <a href="whitepaper.html" target="_blank" style="color:var(--hood);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--hood)">📜 READ THE WHITEPAPER</a>
+  </div>
+
+  <!-- Title / character select -->
+  <div id="title" class="overlay hidden">
+    <h1>ROBINHOODZ</h1>
+    <div class="tag">Rob the rich · Feed the Feather-Ral Reserve · Earn $FETA</div>
+    <div id="chars"></div>
+    <div class="tag">Pick your hood</div>
+    <a href="whitepaper.html" target="_blank" style="color:var(--hood);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--hood)">📜 WHITEPAPER</a>
+  </div>
+
+  <!-- Intro lore (new games) -->
+  <div id="intro" class="overlay hidden">
+    <div class="lorebox">
+      <h2>NEW SHERWOOD, 2031</h2>
+      <div id="loreStory">
+        The banks wrote the rules, then bought the referees. Bank Row forecloses by
+        algorithm. Whale Bay parties on yields nobody downtown will ever see. The Vaults
+        hold more locked wealth than the rest of the city combined — and the city is
+        hungry.<br><br>
+        Then somebody spun up the <b style="color:#4caf6d">Feather-Ral Reserve</b>: an
+        unbreakable vault that skims <b style="color:#f2c341">1% of every $FETA that moves</b>
+        — every score, every purchase, every fine — and rains it back on the streets.
+        Nobody knows who built it. Everybody knows what it means:
+        robbing the rich finally pays a dividend.<br><br>
+        You wear the green hood now. Out here your name means nothing —
+        your <b style="color:#c58cff">AURA</b> is your name. Earn it.
+      </div>
+      <div class="bio" id="loreBio"></div>
+    </div>
+    <button class="px" id="btnStreets">HIT THE STREETS</button>
+  </div>
+  <!-- Season leaderboard -->
+  <div id="board" class="overlay hidden" style="gap:12px">
+    <h2 style="color:var(--feta);letter-spacing:3px">🏆 SEASON LEADERBOARD</h2>
+    <div id="boardBody" style="display:flex;flex-direction:column;gap:10px;align-items:center"></div>
+    <button class="px" onclick="closeBoard()">Back to the streets (L)</button>
+  </div>
+
+  <!-- Third strike: take the fall or snitch -->
+  <div id="busted" class="overlay hidden" style="gap:12px">
+    <h2 style="color:var(--alert);letter-spacing:3px">⛓ THIRD STRIKE</h2>
+    <div id="bustedBody" style="display:flex;flex-direction:column;gap:10px;align-items:center"></div>
+  </div>
+
+  <!-- Gang HQ -->
+  <div id="gangPanel" class="overlay hidden" style="gap:12px">
+    <h2 style="color:var(--feta);letter-spacing:3px">GANG HQ</h2>
+    <div id="gangBody" style="display:flex;flex-direction:column;gap:10px;align-items:center"></div>
+    <button class="px" onclick="closeGang()">Back to the streets (G)</button>
+  </div>
+
+  <div id="shop" class="overlay hidden">
+    <h2>THE FENCE</h2>
+    <div class="taxnote">All purchases pay a 1% Feather-Ral tax on top.</div>
+    <div id="items"></div>
+    <button class="px" onclick="closeShop()">Back to the streets (B)</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   RobinHoodz — pixel top-down prototype
+   Economy: AURA emits $FETA · every $FETA movement pays 1% to
+   the Feather-Ral Reserve · Reserve airdrops back at milestones
+   ============================================================ */
+const cv = document.getElementById('game'), cx = cv.getContext('2d');
+cx.imageSmoothingEnabled = false;
+
+/* ============================================================
+   WALLET & CHAIN CONFIG — ★ EDIT THESE WHEN YOU DEPLOY ★
+   Robinhood Chain (Arbitrum Orbit) · Chain ID 4663 = 0x1237
+   ============================================================ */
+const CHAIN_CONFIG = {
+  chainId: '0x1237',                              // 4663 — verify against official docs
+  chainName: 'Robinhood Chain',
+  rpcUrls: ['https://REPLACE-WITH-OFFICIAL-RPC'], // ★ paste the official RPC URL
+  nativeCurrency: { name:'Ether', symbol:'ETH', decimals:18 },
+  blockExplorerUrls: ['https://REPLACE-WITH-EXPLORER'],
+};
+const FETA_TOKEN_ADDRESS = '0xREPLACE_WHEN_DEPLOYED';   // ★ your ERC-20 with 1% Reserve tax
+const RESERVE_ADDRESS    = '0xREPLACE_WHEN_DEPLOYED';   // ★ Feather-Ral Reserve treasury
+const CLAIM_BANK_ADDRESS = '0xREPLACE_WHEN_DEPLOYED';   // ★ FetaClaimBank contract (season payouts)
+const SEL_CLAIMABLE='402914f5', SEL_CLAIM='4e71d92d';   // claimable(address), claim()
+
+/* ---------- storage: localStorage when hosted, memory fallback in sandboxes ---------- */
+const store = {
+  mem: {},
+  get(k){ try{ const v=localStorage.getItem(k); return v!==null?v:(this.mem[k]??null); }catch(e){ return this.mem[k]??null; } },
+  set(k,v){ this.mem[k]=v; try{ localStorage.setItem(k,v); }catch(e){} },
+};
+
+/* ---------- wallet state & connect flow (EIP-1193 + EIP-6963 discovery) ---------- */
+const wallet = { address:null, chainOk:false };
+const shortAddr = a => a ? a.slice(0,6)+'…'+a.slice(-4) : 'GUEST';
+function wstatus(msg){ const el=document.getElementById('wstatus'); if(el) el.textContent=msg; }
+
+// EIP-6963: modern wallet discovery — catches wallets even when
+// multiple extensions fight over window.ethereum
+const discoveredProviders = [];
+window.addEventListener('eip6963:announceProvider', e => discoveredProviders.push(e.detail));
+window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+function getProvider(){
+  window.dispatchEvent(new Event('eip6963:requestProvider'));   // re-ask on demand
+  const mm = discoveredProviders.find(p=>/metamask/i.test(p.info?.name||''));
+  return (mm && mm.provider) || (discoveredProviders[0] && discoveredProviders[0].provider) || window.ethereum || null;
+}
+
+async function connectWallet(){
+  const eth = getProvider();
+  if(!eth){
+    if(location.protocol==='file:')
+      wstatus('⚠ Wallets can\'t inject into file:// pages. Serve this over http — e.g. run "python -m http.server" and open http://localhost:8000 — then reconnect.');
+    else
+      wstatus('No wallet detected. Unlock MetaMask (or install one), refresh, and try again — or play as guest.');
+    return;
+  }
+  try{
+    wstatus('Requesting accounts…');
+    const accts = await eth.request({ method:'eth_requestAccounts' });
+    wallet.address = accts[0];
+    // try to land on Robinhood Chain; offer to add it if the wallet doesn't know it
+    try{
+      await eth.request({ method:'wallet_switchEthereumChain', params:[{ chainId: CHAIN_CONFIG.chainId }] });
+      wallet.chainOk = true;
+    }catch(sw){
+      if(sw && sw.code === 4902){
+        try{ await eth.request({ method:'wallet_addEthereumChain', params:[CHAIN_CONFIG] }); wallet.chainOk = true; }
+        catch(e){ /* user declined adding the chain — profile still works */ }
+      }
+    }
+    eth.on?.('accountsChanged', a=>{ wallet.address=a[0]||null;
+      document.getElementById('uiWallet').textContent=shortAddr(wallet.address); });
+    proceedFromWallet(wallet.address);
+  }catch(e){ wstatus('Connection rejected. You can still play as guest.'); }
+}
+
+/* ---------- profiles: saved per address (or guest) ---------- */
+const profileKey = () => 'robinhoodz:' + (wallet.address||'guest').toLowerCase();
+function saveProfile(){
+  if(!started) return;
+  store.set(profileKey(), JSON.stringify({
+    charIdx: player.charIdx, feta: eco.feta, lifetime: eco.lifetime, rep: eco.rep,
+    reserve: eco.reserve, milestone: eco.milestone, lvl: eco.lvl,
+    atk: eco.atk, def: eco.def, wins: eco.wins, gang: eco.gang, strikes: eco.strikes, ratT: Math.round(eco.ratT),
+    season: eco.season, seasonT: Math.round(eco.seasonT), stats: eco.stats,
+    username: eco.username||null,
+    items: items.filter(i=>i.owned).map(i=>i.id),
+    x: Math.round(player.x), y: Math.round(player.y),
+  }));
+}
+function loadProfile(){
+  try{ const raw=store.get(profileKey()); return raw?JSON.parse(raw):null; }catch(e){ return null; }
+}
+function proceedFromWallet(addr){
+  document.getElementById('wallet').classList.add('hidden');
+  document.getElementById('uiWallet').textContent = shortAddr(addr);
+  if(addr) document.getElementById('nameChip').style.display='flex';
+  const p = loadProfile();
+  if(p && Number.isInteger(p.charIdx)) enterGame(p.charIdx, p);
+  else document.getElementById('title').classList.remove('hidden');
+}
+document.getElementById('btnConnect').onclick = connectWallet;
+document.getElementById('btnGuest').onclick   = ()=>proceedFromWallet(null);
+document.getElementById('btnWipe').onclick    = ()=>{
+  try{
+    Object.keys(localStorage)
+      .filter(k=>k.startsWith('robinhoodz:'))
+      .forEach(k=>localStorage.removeItem(k));
+  }catch(e){}
+  store.mem = {};
+  wstatus('✓ All saved profiles deleted. Connect or play as guest to start a brand-new run.');
+};
+setInterval(saveProfile, 5000);                       // autosave
+addEventListener('beforeunload', saveProfile);
+
+/* ---------- Pixel sprites ----------
+   Legend: . empty | H hood | S skin | B body(hoodie) | P pants
+           O outline | E eye | W white */
+const SPRITE = [
+  "....HHHH....",
+  "...HHHHHH...",
+  "..HHHHHHHH..",
+  "..HSSSSSSH..",
+  "..HSESSESH..",
+  "..HSSSSSSH..",
+  "...SSMMSS...",
+  "..BBBBBBBB..",
+  ".BBBBBBBBBB.",
+  ".BBB🧀BBBBBB.",
+  ".SBBBBBBBBS.",
+  "..BBBBBBBB..",
+  "..PPP..PPP..",
+  "..PPP..PPP..",
+  "..OOO..OOO..",
+  "..OOO..OOO.."
+];
+// female variant: hair (R) framing the face under the hood, falling to the shoulders
+const SPRITE_FEM = [
+  "....HHHH....",
+  "...HHHHHH...",
+  "..HHHHHHHH..",
+  "..HRSSSSRH..",
+  "..HRESSERH..",
+  "..HRSSSSRH..",
+  "...RSMMSR...",
+  "..RBBBBBBR..",
+  ".BBBBBBBBBB.",
+  ".BBB🧀BBBBBB.",
+  ".SBBBBBBBBS.",
+  "..BBBBBBBB..",
+  "..PPP..PPP..",
+  "..PPP..PPP..",
+  "..OOO..OOO..",
+  "..OOO..OOO.."
+];
+const CHARS = [
+  { name:"Marian", grid:SPRITE_FEM, desc:"The strategist",
+    bio:"<b>MARIAN</b> — Eight years behind the teller glass at First Feather Bank. She processed the foreclosures, saw whose loans got 'lost' and whose got called in, and memorized the books they thought nobody read. She didn't quit. She graduated.",
+    pal:{H:'#4caf6d',S:'#8d5a3b',B:'#3c8f5b',P:'#26304f',O:'#111',E:'#fff',M:'#5c3a24',R:'#1c1410'} },
+  { name:"Loxley", grid:SPRITE, desc:"Old-school stick-up",
+    bio:"<b>LOXLEY</b> — Third generation. His grandfather ran crews out of these blocks back when Bank Row was still a neighborhood, before the towers ate it. He works clean, quiet, and by a code: never the small wallets, only the ones that can't count that high.",
+    pal:{H:'#4caf6d',S:'#e8b48c',B:'#3c8f5b',P:'#26304f',O:'#111',E:'#fff',M:'#b5825e'} },
+  { name:"John", grid:SPRITE, desc:"Knows every route",
+    bio:"<b>JOHN</b> — They call him Lil John because he isn't. Twelve years driving armored trucks for the Vaults until they cut his pension to fund an executive bonus pool. Now every schedule, every route, every curb those trucks slow down at — it's all still in his head.",
+    pal:{H:'#4caf6d',S:'#7a4a2b',B:'#3c8f5b',P:'#26304f',O:'#111',E:'#fff',M:'#4d2e1a'} },
+  { name:"Scarlett", grid:SPRITE_FEM, desc:"Whale whisperer",
+    bio:"<b>SCARLETT</b> — Worked the Yacht Club floor for years: pouring for whales, laughing at their jokes, learning exactly which pocket they keep it all in. They never once learned her name. That was their mistake, not hers.",
+    pal:{H:'#4caf6d',S:'#e8b48c',B:'#3c8f5b',P:'#26304f',O:'#111',E:'#fff',M:'#b5825e',R:'#a8332f'} },
+  { name:"Ribbit", grid:SPRITE, desc:"A frog. Unstoppable.",
+    bio:"<b>RIBBIT</b> — Nobody knows where the frog came from. One night the Whale Aquarium's rarest exhibit went missing, and the next morning a frog in a green hoodie was robbing bankers on Bank Row. Draw your own conclusions. The streets already have.",
+    pal:{H:'#4caf6d',S:'#79c94f',B:'#3c8f5b',P:'#26304f',O:'#111',E:'#ffe14d',M:'#4a8f2e'} },
+];
+function drawSprite(ctx, grid, pal, x, y, s, flip=false){
+  for(let r=0;r<grid.length;r++){
+    const row=[...grid[r]];
+    for(let c=0;c<row.length;c++){
+      const ch=row[c];
+      if(ch==='.') continue;
+      if(ch==='🧀'){ ctx.fillStyle='#f2c341'; }
+      else ctx.fillStyle = pal[ch] || pal.B;
+      const dc = flip ? row.length-1-c : c;
+      ctx.fillRect(x+dc*s, y+r*s, s, s);
+    }
+  }
+}
+
+/* ---------- NPC pixel sprites ---------- */
+const BANKER_GRID=[
+  "....HHHH....",
+  "....HHHH....",
+  "..HHHHHHHH..",
+  "...SSSSSS...",
+  "...SESSES...",
+  "...SSSSSS...",
+  "....SMMS....",
+  "..BBWWWWBB..",
+  ".BBBWTTWBBB.",
+  ".BBBWTTWBBB.",
+  ".SBBWWWWBBS.",
+  "..BBBBBBBB..",
+  "..PPP..PPP..",
+  "..PPP..PPP..",
+  "..OOO..OOO..",
+  "..OOO..OOO.."
+];
+const BANKER_PAL={H:'#15151d',S:'#e8b48c',E:'#111',M:'#b5825e',B:'#23263b',W:'#e8ecf5',T:'#f2c341',P:'#1a1d2e',O:'#0c0e18'};
+
+const WHALE_GRID=[
+  "...WWWWWW...",
+  "..WWWWWWWW..",
+  ".WWWWWWWWWW.",
+  ".WEWWWWWWEW.",
+  ".WWWWWWWWWW.",
+  "..WMMMMMMW..",
+  "...WWWWWW...",
+  "..BBGGGGBB..",
+  ".BBBGTTGBBB.",
+  ".BBBGTTGBBB.",
+  ".FBBGGGGBBF.",
+  "..BBBBBBBB..",
+  "..PPP..PPP..",
+  "..PPP..PPP..",
+  "..OOO..OOO..",
+  "..OOO..OOO.."
+];
+const WHALE_PAL={W:'#5a8fd6',E:'#0d1226',M:'#3a6bb0',B:'#2a2f45',G:'#e8ecf5',T:'#f2c341',F:'#4a7fc6',P:'#1a1d2e',O:'#0c0e18'};
+
+const COP_GRID=[
+  "....CCCC....",
+  "...CCCCCC...",
+  "..CCCCCCCC..",
+  "..DDDDDDDD..",
+  "...SSSSSS...",
+  "...SESSES...",
+  "...SSSSSS...",
+  "..UUUUUUUU..",
+  ".UUUTUUUUUU.",
+  ".UUUUUUUUUU.",
+  ".SUUUUUUUUS.",
+  "..UUUUUUUU..",
+  "..PPP..PPP..",
+  "..PPP..PPP..",
+  "..OOO..OOO..",
+  "..OOO..OOO.."
+];
+const COP_PAL={C:'#2b4a8f',D:'#111524',S:'#c98e63',E:'#111',U:'#33549e',T:'#f2c341',P:'#1a1d2e',O:'#0c0e18'};
+
+const TRUCK_GRID=[
+  "......................",
+  ".BBBBBBBBBBBBBB.......",
+  ".BBBBBBBBBBBBBBCCCC...",
+  ".BTTBBBBBBBBBBBCWWC...",
+  ".BTTBBBBBBBBBBBCWWC...",
+  ".BBBBBBBBBBBBBBCCCCC..",
+  ".LBBBBBBBBBBBBBCCCCL..",
+  "..OO...OO....OO..OO...",
+  "..OO...OO....OO..OO...",
+  "......................"
+];
+const TRUCK_PAL={B:'#3a4368',T:'#f2c341',C:'#242b47',W:'#8fd8ff',L:'#141a30',O:'#0c0e18'};
+
+/* ---------- walk cycle: stand + two step frames (alternating lead foot) ---------- */
+function walkFrames(grid){
+  const a=[...grid], b=[...grid];
+  a[15]="..OOO.......";           // left foot planted, right foot mid-stride
+  b[15]=".......OOO..";           // right foot planted, left foot mid-stride
+  return [grid, a, b];
+}
+const PLAYER_F=walkFrames(SPRITE);
+CHARS.forEach(c=>c.frames=walkFrames(c.grid));
+const BANKER_F=walkFrames(BANKER_GRID);
+const WHALE_F =walkFrames(WHALE_GRID);
+const COP_F   =walkFrames(COP_GRID);
+function stepFrame(frames, moving, phase){
+  return moving ? frames[1+(phase%2)] : frames[0];
+}
+
+
+const W=1920, H=1200, VW=960, VH=600;
+const districts = [
+  {x:60,   y:60,  w:820, h:1080, name:"BANK ROW",  col:'#1b2340'},
+  {x:920,  y:60,  w:940, h:520,  name:"WHALE BAY", col:'#152b42'},
+  {x:920,  y:620, w:940, h:520,  name:"THE VAULTS",col:'#241f3a'},
+];
+const buildings = [
+  {x:160,y:180,w:200,h:140,label:'FIRST FEATHER BANK',heist:[150,300],neon:'FEATHER $',neonCol:'#f2c341',
+   style:{wall:'#5f5844',trim:'#3b3628',colCol:'#7d745c',cols:true,win:'grid',winCol:'#141a30',door:'wood'}},
+  {x:520,y:180,w:200,h:140,label:'HEDGE & CO',heist:[100,200],neon:'HEDGE',neonCol:'#4caf6d',
+   style:{wall:'#1f2a44',trim:'#12182b',win:'glass',winCol:'#20504f',door:'wood'}},
+  {x:160,y:760,w:200,h:140,label:'MERGERS LLC',heist:[80,160],neon:'M&A',neonCol:'#ff5fa2',
+   style:{wall:'#553832',trim:'#372420',win:'brick',winCol:'#141a30',door:'wood'}},
+  {x:520,y:760,w:200,h:140,label:'YACHT CLUB HQ',heist:[90,180],neon:'YACHT',neonCol:'#5a8fd6',
+   style:{wall:'#7e879c',trim:'#3b4560',win:'grid',winCol:'#1a2138',awn:['#2e4a7d','#e8ecf5'],door:'wood'}},
+  {x:1080,y:170,w:240,h:130,label:'WHALE AQUARIUM',heist:[100,200],neon:'WHALE',neonCol:'#57d7e8',
+   style:{wall:'#1c3947',trim:'#102129',win:'glass',winCol:'#20606f',awn:['#57d7e8','#102129'],door:'wood'}},
+  {x:1480,y:170,w:240,h:130,label:'MARINA TOWERS',heist:[90,180],neon:'MARINA',neonCol:'#b48cff',
+   style:{wall:'#37325a',trim:'#221e3a',colCol:'#5b548c',win:'balcony',winCol:'#141a30',door:'wood'}},
+  {x:1080,y:740,w:240,h:130,label:'VAULT 001',heist:[250,500],neon:'VAULT',neonCol:'#ffb347',
+   style:{wall:'#3b4048',trim:'#22262c',win:'slits',winCol:'#10141c',door:'steel'}},
+  {x:1480,y:740,w:240,h:130,label:'COLD STORAGE',heist:[150,300],neon:'COLD',neonCol:'#8fd8ff',
+   style:{wall:'#41566d',trim:'#283a4c',win:'slits',winCol:'#0f1c2b',door:'shutter'}},
+];
+
+/* ---------- Marks (the rich) & guards ---------- */
+const MARK_TYPES = [
+  {kind:'Banker', grid:BANKER_GRID, frames:BANKER_F, pal:BANKER_PAL, aura:5,  lvl:1, col:'#c9a86a'},
+  {kind:'Whale',  grid:WHALE_GRID,  frames:WHALE_F,  pal:WHALE_PAL,  aura:12, lvl:3, col:'#5a8fd6'},
+];
+function rand(a,b){return a+Math.random()*(b-a);}
+function makeMark(t, x, y){
+  return {...t, x, y, vx:0, vy:0, wanderT:0, cool:0, r:16, ph:Math.floor(Math.random()*100)};
+}
+let marks=[], guards=[];
+function spawnWorld(){
+  spawnRivals(); spawnSims();
+  convoy=null; convoyTimer=50; convoyAnnounced=false;
+  marks=[
+    makeMark(MARK_TYPES[0], 300, 420), makeMark(MARK_TYPES[0], 640, 500),
+    makeMark(MARK_TYPES[0], 420, 980), makeMark(MARK_TYPES[0], 250, 620),
+    makeMark(MARK_TYPES[1], 1250, 380), makeMark(MARK_TYPES[1], 1600, 420),
+    makeMark(MARK_TYPES[1], 1400, 250),
+  ];
+  guards=[
+    {x:800,y:300,dir:1,axis:'y',min:150,max:1000,r:18,ph:0},
+    {x:1400,y:590,dir:1,axis:'x',min:960,max:1800,r:18,ph:37},
+    {x:1750,y:900,dir:1,axis:'y',min:680,max:1080,r:18,ph:71},
+    {x:110,y:500,dir:1,axis:'y',min:120,max:1060,r:18,ph:19,minLvl:3},  // west edge beat — deploys at LVL 3
+    {x:440,y:560,dir:1,axis:'x',min:130,max:760,r:18,ph:53,minLvl:3},   // crosstown beat — deploys at LVL 3
+  ];
+  guards.forEach(g=>{ g.hx=g.x; g.hy=g.y; g.chase=false; });
+}
+
+/* ---------- Player & economy ---------- */
+const player={x:120,y:120,speed:2.6,pal:null,heatMult:1,auraMult:1};
+/* AURA is split:
+   lifetime — soulbound street cred: levels & unlocks, only goes UP
+   rep      — volatile: raidable, drives your share of $FETA emissions
+   $FETA only enters through convoys, building heists, emissions & airdrops —
+   robbing people earns respect, not cheese. */
+const eco={feta:0, lifetime:0, rep:0, reserve:0, heat:0, milestone:100, lvl:1,
+           atk:0, def:0, wins:0, gang:null, strikes:0, ratT:0,
+           season:1, seasonT:600, stats:{robberies:0, convoys:0, heists:0, earned:0}};
+const EMIT_MIN_REP=20;
+const COP_SIGHT=170;     // rob inside this ring and the heat bar auto-fills
+function onDuty(g){ return !g.minLvl || eco.lvl>=g.minLvl; }
+function copWitness(){ return guards.some(g=>onDuty(g) && Math.hypot(g.x-player.x,g.y-player.y)<COP_SIGHT); }   // emissions only flow while ⚔ REP is at or above this
+const RAT_DURATION=120;  // seconds the 🐀 tag lasts (maps to days in production)
+
+/* ---------- rival gangs (simulated — becomes real players later) ---------- */
+let rivals=[];
+function spawnRivals(){
+  rivals=[
+    {name:'The Sheriffs',       rep:280, atk:3, def:3, nextAtk:150},
+    {name:'Gisbourne Syndicate',rep:190, atk:2, def:2, nextAtk:210},
+    {name:'Nottingham Kings',   rep:120, atk:1, def:1, nextAtk:270},
+  ];
+}
+function gangLvl(){ return eco.gang ? 1+Math.floor(eco.wins/3) : 0; }
+function gangMult(){
+  if(eco.ratT>0) return 1;                              // crew won't vouch for a rat
+  return 1 + Math.min(0.25, 0.05*gangLvl());            // capped +25%
+}
+function repShare(){
+  const total = eco.rep + rivals.reduce((s,r)=>s+r.rep,0);
+  return total>0 ? eco.rep/total : 0;
+}
+
+/* ---------- convoy events: the $FETA collection run ---------- */
+let convoy=null, convoyTimer=50, convoyAnnounced=false;
+const CONVOY_INTERVAL=90, CONVOY_LVL=5;
+
+function gainAura(n){ eco.lifetime+=n; eco.rep+=n; checkLevel(); }
+
+/* ---------- level system: LIFETIME aura is street cred ---------- */
+const LVL_T=[0,20,50,100,170,260,380,500,750,1000];   // lifetime aura per level
+const BUILDING_LVL=8;
+function levelFor(a){ let l=1; for(let i=1;i<LVL_T.length;i++) if(a>=LVL_T[i]) l=i+1; return l; }
+function checkLevel(){
+  const lv=levelFor(eco.lifetime);
+  if(lv>eco.lvl){
+    eco.lvl=lv;
+    toast(`✪ LEVEL ${lv} — the streets know your name.`, 'res');
+    if(lv===3) sms('NSPD ALERT 🚨', "Increased criminal activity reported in the Bank Row district. Two additional patrol units have been deployed effective immediately. The New Sherwood Police Department protects what matters.");
+    if(lv===3) sms('TUCK 📱', "Word's getting around about you. The whales down in Whale Bay waddle around with more rep to take than anybody — slow feet, big reputations. Go introduce yourself. 🐳");
+    if(lv===5) sms('TUCK 📱', "Now we're talking. The FEDERAL CONVOY rolls through every couple minutes hauling actual $FETA payroll. I'll ping you when one's inbound — catch it at the curb before it clears the district. That's the only real cheese on these streets. 🚚");
+    if(lv===10) sms('TUCK 📱', "LVL 10. You're not a stick-up kid anymore — you're a name. The crews will follow you now. Hit G and put your colors on the map. Costs 100 🧀 to make it official. 🏴");
+    if(lv===BUILDING_LVL) sms('TUCK 📱', "You're ready for the real thing. Every door in this city can be cracked — banks, vaults, cold storage, all holding $FETA. Alarms will scream the second you're through. No blue on the block. 🏦");
+  }
+}
+/* burner-phone lore texts */
+function sms(from, body){
+  snd.text();
+  const el=document.createElement('div');
+  el.className='toast sms';
+  const b=document.createElement('b'); b.textContent=from;
+  el.appendChild(b); el.appendChild(document.createTextNode(body));
+  const log=document.getElementById('log');
+  log.prepend(el); setTimeout(()=>el.remove(),9200);
+  if(log.children.length>5) log.lastChild.remove();
+}
+let robTarget=null, robProg=0, robKind=null, robLocked=false, robNeed=0;
+
+function tax(amount, label){ // returns net, routes 1% to reserve
+  const cut = Math.max(0.01, amount*0.01);
+  eco.reserve += cut;
+  checkMilestone();
+  return amount - cut;
+}
+function checkMilestone(){
+  if(eco.reserve >= eco.milestone){
+    const drop = Math.round(eco.milestone*0.25);
+    eco.reserve -= drop;
+    eco.feta += drop; // airdrops from the Reserve are tax-exempt
+    toast(`🏛 FEATHER-RAL RESERVE AIRDROP: +${drop} $FETA to the streets`, 'res');
+    eco.milestone = Math.round(eco.milestone*1.6);
+  }
+}
+
+/* ---------- Shop ---------- */
+const items=[
+  {id:'sneak', name:'Swift Sneakers',  desc:'+35% move speed',        cost:40,  owned:false, fn:()=>player.speed*=1.35},
+  {id:'cloak', name:'Feather Cloak',   desc:'Half heat per robbery',  cost:80,  owned:false, fn:()=>player.heatMult=0.5},
+  {id:'grill', name:'Golden Grill',    desc:'+50% AURA per robbery',  cost:150, owned:false, fn:()=>player.auraMult=1.5},
+  {id:'crow',  name:'Crowbar Crew',    desc:'+1 ATK on raids',        cost:60,  owned:false, fn:()=>eco.atk++},
+  {id:'emp',   name:'EMP Rig',         desc:'+2 ATK on raids',        cost:140, owned:false, fn:()=>eco.atk+=2},
+  {id:'dog',   name:'Guard Dog',       desc:'+1 DEF vs rival raids',  cost:60,  owned:false, fn:()=>eco.def++},
+  {id:'stash', name:'Reinforced Stash',desc:'+2 DEF vs rival raids',  cost:140, owned:false, fn:()=>eco.def+=2},
+];
+
+/* ---------- Gang HQ ---------- */
+let gangOpen=false;
+const GANG_COST=100, RAID_FEE=25, GANG_LVL_REQ=10;
+function openGang(){ gangOpen=true; renderGang(); document.getElementById('gangPanel').classList.remove('hidden'); }
+function closeGang(){ gangOpen=false; document.getElementById('gangPanel').classList.add('hidden'); }
+function renderGang(){
+  const el=document.getElementById('gangBody'); el.innerHTML='';
+  const box=(html)=>{ const d=document.createElement('div');
+    d.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:12px 16px;width:480px;max-width:90vw;font-size:12px;text-align:left;line-height:1.6';
+    d.innerHTML=html; el.appendChild(d); return d; };
+  if(!eco.gang && eco.lvl<GANG_LVL_REQ){
+    box(`<b style="color:var(--alert)">🔒 GANGS LOCKED — REACH LEVEL ${GANG_LVL_REQ}</b><br>
+      <span class="taxnote">Nobody follows an unknown. You're LVL ${eco.lvl} — build your lifetime ✦ AURA
+      to ${LVL_T[GANG_LVL_REQ-1]} and the crews will take your calls. Forming OR joining a gang requires LVL ${GANG_LVL_REQ}.</span>`);
+  } else if(!eco.gang){
+    const d=box(`<b style="color:var(--feta)">FORM A GANG — ${GANG_COST} 🧀</b><br>
+      <span class="taxnote">Formation fee goes straight to the Feather-Ral Reserve. A gang boosts the
+      $FETA emissions <i>you personally earn</i> (+5%/gang level, capped +25%) and lets you raid rivals for REP.</span><br><br>`);
+    const inp=document.createElement('input');
+    inp.maxLength=18; inp.placeholder='Gang name…';
+    inp.style.cssText='font-family:inherit;background:#0d1226;border:2px solid #2a3352;color:var(--ink);padding:8px 10px;width:60%;font-size:13px';
+    const btn=document.createElement('button'); btn.className='px'; btn.textContent='FORM'; btn.style.marginLeft='8px';
+    btn.onclick=()=>{
+      const nm=inp.value.trim();
+      if(eco.lvl<GANG_LVL_REQ){ toast(`Gangs unlock at LVL ${GANG_LVL_REQ}.`, 'bad'); return; }
+      if(!nm){ toast('Your gang needs a name.', 'bad'); return; }
+      if(eco.feta<GANG_COST){ toast(`Need ${GANG_COST} 🧀 to form a gang. Hit a convoy.`, 'bad'); return; }
+      eco.feta-=GANG_COST; eco.reserve+=GANG_COST; checkMilestone();
+      eco.gang={name:nm, aura:50};
+      sms('TUCK 📱', `${nm}, huh? Bold. The Sheriffs already heard. Watch your rep — and take some of theirs. ⚔`);
+      renderGang(); saveProfile();
+    };
+    d.appendChild(inp); d.appendChild(btn);
+  } else {
+    const ga=Math.round(eco.gang.aura??50);
+    box(`<b style="color:var(--hood)">${eco.gang.name}</b> · Gang LVL ${gangLvl()} (${eco.wins} raid wins)<br>
+      Gang AURA: <b style="color:${ga>25?'#7ee08a':'#e5484d'}">${ga}/100</b>
+      ${eco.ratT>0?'<b style="color:#e5484d"> · 🐀 RAT-TAGGED '+Math.ceil(eco.ratT)+'s — boost suspended, gang aura bleeding. Hit 0 and you\'re out.</b>':''}<br>
+      Emission boost: <b style="color:var(--feta)">+${Math.round((gangMult()-1)*100)}%</b> ·
+      Your emission share: <b style="color:var(--feta)">${(repShare()*100).toFixed(1)}%</b> ${eco.rep>=EMIT_MIN_REP?'<span style="color:#7ee08a">● flowing</span>':'<span style="color:#e5484d">● PAUSED — need '+EMIT_MIN_REP+'+ REP</span>'}<br>
+      ⚔ REP <b style="color:#ff8c5a">${Math.round(eco.rep)}</b> ·
+      ATK <b>${eco.atk}</b> · DEF <b>${eco.def}</b>
+      <span class="taxnote">(buy gear at The Fence — B)</span>`);
+    rivals.forEach((r,i)=>{
+      const d=box(`<b style="color:#e5484d">${r.name}</b> · REP ${Math.round(r.rep)} · DEF ${r.def}<br>
+        <span class="taxnote">Win: take ~12% of their REP. Lose: drop 6% of yours. Fee → Reserve. REP only — nobody's 🧀 gets touched.</span>`);
+      const btn=document.createElement('button'); btn.className='px';
+      btn.textContent=`RAID — ${RAID_FEE} 🧀`; btn.style.cssText='margin-top:6px;font-size:11px;padding:7px 14px';
+      btn.onclick=()=>raidRival(i);
+      d.appendChild(document.createElement('br')); d.appendChild(btn);
+    });
+  }
+}
+function raidRival(i){
+  const r=rivals[i];
+  if(eco.feta<RAID_FEE){ toast(`Raids cost ${RAID_FEE} 🧀 — the Reserve doesn't do credit.`, 'bad'); return; }
+  eco.feta-=RAID_FEE; eco.reserve+=RAID_FEE; checkMilestone();
+  const atkP=eco.rep*0.5 + eco.atk*25 + rand(0,60);
+  const defP=r.rep*0.5   + r.def*25   + rand(0,60);
+  if(atkP>defP){
+    const steal=Math.round(r.rep*0.12)+5;
+    r.rep=Math.max(0,r.rep-steal); eco.rep+=steal; eco.wins++;
+    if(eco.gang) eco.gang.aura=Math.min(100,(eco.gang.aura??50)+6);
+    sms('TUCK 📱', `Your crew hit ${r.name} and walked out with +${steal} ⚔ REP. That's ${eco.wins} wins — ${eco.gang.name} is LVL ${gangLvl()} now. 🏴`);
+  } else {
+    const loss=Math.round(eco.rep*0.06);
+    eco.rep=Math.max(0,eco.rep-loss); r.rep+=loss;
+    sms('TUCK 📱', `${r.name} saw you coming. Lost ${loss} ⚔ REP on the way out. Buy some gear before you try that again. 🩹`);
+  }
+  checkLevel(); renderGang(); saveProfile();
+}
+/* ---------- season leaderboard & Reserve giveaways ---------- */
+const SEASON_LEN=600;                       // 10 min per season in the prototype
+let simPlayers=[];
+function spawnSims(){
+  simPlayers=[
+    {name:'0xGr33nHood',   rep:340, life:1200, g:0.030},
+    {name:'CheeseLarceny', rep:250, life:800,  g:0.026},
+    {name:'MaidMarauder',  rep:210, life:640,  g:0.022},
+    {name:'FriarTucked',   rep:150, life:500,  g:0.018},
+    {name:'SherwoodShorty',rep:95,  life:300,  g:0.014},
+    {name:'LilFeta',       rep:40,  life:120,  g:0.010},
+  ];
+}
+function playersBoard(){          // individuals, ranked by personal ⚔ REP — giveaways pay here
+  return [
+    {name:(eco.username?eco.username+' ✔':'YOU'), rep:eco.rep, life:eco.lifetime, you:true},
+    ...simPlayers.map(p=>({name:p.name, rep:p.rep, life:p.life})),
+  ].sort((a,b)=>b.rep-a.rep);
+}
+function gangsBoard(){            // crews, ranked by combined crew ⚔ REP (your crew = you, for now)
+  const list=rivals.map(r=>({name:r.name, rep:r.rep, aura:null}));
+  if(eco.gang) list.push({name:eco.gang.name, rep:eco.rep, aura:Math.round(eco.gang.aura??50), you:true});
+  return list.sort((a,b)=>b.rep-a.rep);
+}
+let boardOpen=false;
+function openBoard(){ boardOpen=true; renderBoard(); document.getElementById('board').classList.remove('hidden'); }
+function closeBoard(){ boardOpen=false; document.getElementById('board').classList.add('hidden'); }
+function renderBoard(){
+  const el=document.getElementById('boardBody'); el.innerHTML='';
+  const pool=eco.reserve*0.3;
+  const head=document.createElement('div');
+  head.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:10px 16px;width:520px;max-width:92vw;font-size:12px;text-align:center';
+  head.innerHTML=`Season ends in <b style="color:var(--feta)">${Math.floor(eco.seasonT/60)}:${String(Math.floor(eco.seasonT%60)).padStart(2,'0')}</b>
+    · Giveaway pool: <b style="color:var(--feta)">${pool.toFixed(0)} 🧀</b> (30% of the Reserve)<br>
+    <span class="taxnote">Paid out by ⚔ REP rank at the horn. Everyone places; the top eats first.</span>`;
+  el.appendChild(head);
+  const table=(title,rows,fmt)=>{
+    const t=document.createElement('div');
+    t.style.cssText='background:var(--panel);border:2px solid #2a3352;width:520px;max-width:92vw;font-size:12px';
+    const h=document.createElement('div');
+    h.style.cssText='padding:6px 14px;color:var(--feta);letter-spacing:1px;border-bottom:2px solid #2a3352;font-weight:bold';
+    h.textContent=title; t.appendChild(h);
+    rows.forEach((e,i)=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #1b2340'
+        +(e.you?';background:#16281c;color:#7ee08a;font-weight:bold':'');
+      row.innerHTML=`<span>#${i+1} ${e.name}</span><span>${fmt(e)}</span>`;
+      t.appendChild(row);
+    });
+    el.appendChild(t);
+  };
+  table('STREET BOARD — individuals by personal ⚔ REP (giveaways pay here)',
+        playersBoard(), e=>`⚔ ${Math.round(e.rep)} · ✦ ${Math.round(e.life)}`);
+  table('GANG BOARD — crews by combined crew ⚔ REP (#1 gang takes a 5% Reserve bonus)',
+        gangsBoard(), e=>`⚔ ${Math.round(e.rep)}${e.aura!=null?' · gang aura '+e.aura+'/100':''}`);
+  const stats=document.createElement('div');
+  stats.style.cssText='background:var(--panel);border:2px solid #2a3352;padding:8px 16px;width:520px;max-width:92vw;font-size:11px;color:var(--dim);text-align:center';
+  stats.innerHTML=`Your season: ${eco.stats.robberies} robberies · ${eco.stats.convoys} convoys · ${eco.stats.heists} heists · ${eco.stats.earned.toFixed(0)} 🧀 earned lifetime`;
+  el.appendChild(stats);
+}
+function endSeason(){
+  const entries=playersBoard();
+  const pool=eco.reserve*0.3;
+  eco.reserve-=pool;
+  const weights=entries.map((e,i)=>1/Math.pow(i+1,1.3));
+  const wSum=weights.reduce((a,b)=>a+b,0);
+  const myIdx=entries.findIndex(e=>e.you);
+  const myCut=pool*(weights[myIdx]/wSum);
+  eco.feta+=myCut;                             // giveaways are tax-exempt airdrops
+  eco.stats.earned+=myCut;
+  let gangLine='';
+  const gb=gangsBoard();
+  if(eco.gang && gb.length && gb[0].you){      // your crew topped the gang board
+    const bonus=eco.reserve*0.05; eco.reserve-=bonus;
+    eco.feta+=bonus; eco.stats.earned+=bonus;
+    gangLine=` ${eco.gang.name} finished the #1 crew — champion bonus +${bonus.toFixed(2)} 🧀.`;
+  }
+  sms('FEATHER-RAL RESERVE 🏛', `SEASON ${eco.season} FINAL: you placed #${myIdx+1} of ${entries.length} on the street board. Giveaway: +${myCut.toFixed(2)} 🧀 airdropped.${gangLine} New season starts NOW.`);
+  eco.season++; eco.seasonT=SEASON_LEN;
+  if(boardOpen) renderBoard();
+  saveProfile();
+}
+
+/* ---------- getting caught ---------- */
+function bustPlayer(){
+  snd.cells();
+  const fine=Math.round(eco.feta*0.2);
+  if(fine>0){ eco.feta-=fine; eco.reserve+=fine; checkMilestone();
+    toast(`🚨 CAUGHT. Fined ${fine} 🧀 — every cent goes to the Reserve.`, 'bad'); }
+  else toast('🚨 Caught, but your pockets were empty. Embarrassing.', 'bad');
+  eco.heat=0;
+  eco.strikes++;
+  if(eco.strikes>=3){ openBusted(); }
+  else toast(`⛓ STRIKE ${eco.strikes}/3 — one more and you're doing time.`, 'bad');
+  saveProfile();
+}
+
+/* ---------- third strike: the interrogation room ---------- */
+let bustedOpen=false;
+const SNITCH_FEE=120;
+function openBusted(){
+  bustedOpen=true;
+  const body=document.getElementById('bustedBody');
+  body.innerHTML='';
+  const intro=document.createElement('div');
+  intro.className='lorebox';
+  intro.innerHTML=`NSPD has you in the box. Three strikes — they can bury your name for good.
+    <br><br><b style="color:var(--alert)">TAKE THE FALL:</b> your ⚔ REP goes to zero and you do a short stint.
+    Emissions stay off until your REP climbs back over ${EMIT_MIN_REP}.
+    <br><b style="color:var(--feta)">SNITCH:</b> slide the detective ${SNITCH_FEE} 🧀 (straight to the Reserve)
+    and give up a rival gang instead — <i>their</i> REP resets to zero and you walk. But you'll wear the 🐀 tag: rivals hit harder, your gang boost suspends, and your GANG AURA bleeds the whole time. If it hits zero, your own crew votes you out.`;
+  body.appendChild(intro);
+  const fall=document.createElement('button'); fall.className='px';
+  fall.style.background='#e5484d'; fall.textContent='TAKE THE FALL';
+  fall.onclick=takeFall; body.appendChild(fall);
+  rivals.forEach((r,i)=>{
+    const btn=document.createElement('button'); btn.className='px';
+    btn.style.cssText='background:#2a3352;color:var(--ink);font-size:11px;padding:8px 16px';
+    btn.textContent=`🐀 SNITCH ON ${r.name.toUpperCase()} — ${SNITCH_FEE} 🧀`;
+    btn.onclick=()=>snitch(i);
+    body.appendChild(btn);
+  });
+  document.getElementById('busted').classList.remove('hidden');
+}
+function takeFall(){
+  snd.cells();
+  eco.rep=0; eco.strikes=0; eco.heat=0;
+  player.x=120; player.y=120;
+  const body=document.getElementById('bustedBody');
+  let t=8;
+  body.innerHTML=`<div class="lorebox" style="text-align:center">Doing your stint…
+    <b id="stint" style="color:var(--alert)">${t}</b>s<br>
+    <span class="taxnote">⚔ REP wiped to zero. No emissions until you're back over ${EMIT_MIN_REP} REP.
+    Lifetime ✦ AURA untouched — they can't take what the streets remember.</span></div>`;
+  const iv=setInterval(()=>{
+    t--; const el=document.getElementById('stint'); if(el) el.textContent=t;
+    if(t<=0){
+      clearInterval(iv); bustedOpen=false;
+      document.getElementById('busted').classList.add('hidden');
+      sms('TUCK 📱', "Out already? The streets forgot your name while you were inside. Rep's at zero — go remind them. And maybe stop robbing in front of cops.");
+      saveProfile();
+    }
+  },1000);
+}
+function snitch(i){
+  if(eco.feta<SNITCH_FEE){ toast(`You need ${SNITCH_FEE} 🧀 to buy your way out. Detective doesn't do IOUs.`, 'bad'); return; }
+  const r=rivals[i];
+  eco.feta-=SNITCH_FEE; eco.reserve+=SNITCH_FEE; checkMilestone();
+  r.rep=0;
+  eco.ratT=RAT_DURATION;                 // 🐀 tagged — everybody knows
+  rivals.forEach(rv=>rv.nextAtk=Math.min(rv.nextAtk,45));
+  if(eco.gang){ eco.gang.aura=Math.max(0,(eco.gang.aura??50)-10); }
+  eco.strikes=0; eco.heat=0;
+  bustedOpen=false;
+  document.getElementById('busted').classList.add('hidden');
+  sms('TUCK 📱', `Word travels fast. ${r.name} just got their whole operation rolled up, and everybody knows whose mouth did it. Watch your corner — rats don't get warnings. 🐀`);
+  saveProfile();
+}
+/* rival AI: they grow, and they come for your rep */
+function updateRivals(dt){
+  for(const r of rivals){
+    r.rep+=0.02*dt*60;                            // rivals grind too
+    r.nextAtk-=dt;
+    if(r.nextAtk<=0){
+      r.nextAtk=rand(120,240);
+      if(eco.rep<30) continue;                    // too small to bother
+      const ratBonus = eco.ratT>0 ? 25 : 0;              // rats are open season
+      const atkP=r.rep*0.5 + r.atk*25 + ratBonus + rand(0,60);
+      const defP=eco.rep*0.5 + eco.def*25 + rand(0,60);
+      if(atkP>defP){
+        const loss=Math.max(2,Math.round(eco.rep*Math.max(0.04, 0.10-eco.def*0.015)));
+        eco.rep=Math.max(0,eco.rep-loss); r.rep+=loss;
+        if(eco.ratT>0 && eco.gang) eco.gang.aura=Math.max(0,(eco.gang.aura??50)-8);
+        sms(r.name+' ⚔', `Your corner got hit while you were out. −${loss} ⚔ REP. ${eco.def>0?'Your defenses softened the blow.':'Maybe buy a guard dog.'}`);
+      } else {
+        const gain=Math.round(r.rep*0.03);
+        r.rep=Math.max(0,r.rep-gain); eco.rep+=gain;
+        sms('TUCK 📱', `${r.name} tried your block and your defenses ate them alive. +${gain} ⚔ REP. 🛡`);
+      }
+    }
+  }
+}
+function renderShop(){
+  const el=document.getElementById('items'); el.innerHTML='';
+  items.forEach(it=>{
+    const gross=Math.ceil(it.cost*1.01);
+    const d=document.createElement('div');
+    d.className='item'+(it.owned?' owned':'');
+    d.innerHTML=`<span><b>${it.name}</b><br><span class="taxnote">${it.desc}</span></span>
+                 <span class="price">${it.owned?'OWNED':gross+' 🧀'}</span>`;
+    d.onclick=()=>{
+      if(it.owned) return;
+      const gross=Math.ceil(it.cost*1.01);
+      if(eco.feta<gross){ toast('Not enough $FETA. Go touch some vaults.', 'bad'); return; }
+      eco.feta-=gross; eco.reserve+=gross-it.cost; checkMilestone();
+      it.owned=true; it.fn();
+      toast(`Bought ${it.name}. Reserve pocketed ${(gross-it.cost).toFixed(2)} 🧀`);
+      renderShop();
+    };
+    el.appendChild(d);
+  });
+}
+let shopOpen=false;
+function openShop(){ shopOpen=true; renderShop(); document.getElementById('shop').classList.remove('hidden'); }
+function closeShop(){ shopOpen=false; document.getElementById('shop').classList.add('hidden'); }
+
+/* ---------- Input ---------- */
+const keys={};
+addEventListener('keydown',e=>{
+  keys[e.key.toLowerCase()]=true;
+  if(e.key.toLowerCase()==='b' && started){ shopOpen?closeShop():openShop(); }
+  if(e.key.toLowerCase()==='g' && started){ gangOpen?closeGang():openGang(); }
+  if(e.key.toLowerCase()==='l' && started){ boardOpen?closeBoard():openBoard(); }
+  if(e.key.toLowerCase()==='c' && started && nearBank()){ claimFlow(); }
+});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+
+/* ---------- sound engine (synthesized — no files needed) ---------- */
+let actx=null;
+function ac(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC) return null;
+  if(!actx) actx=new AC();
+  if(actx.state==='suspended') actx.resume();
+  return actx;
+}
+addEventListener('pointerdown', ()=>ac(), {once:true});
+addEventListener('touchstart',  ()=>ac(), {once:true});
+function tone(freq, t0, dur, type='sine', vol=0.08, slideTo=null){
+  const a=ac(); if(!a) return;
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq, a.currentTime+t0);
+  if(slideTo) o.frequency.linearRampToValueAtTime(slideTo, a.currentTime+t0+dur);
+  g.gain.setValueAtTime(vol, a.currentTime+t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+t0+dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(a.currentTime+t0); o.stop(a.currentTime+t0+dur+0.02);
+}
+function noiseHit(t0, dur, freq, vol=0.1){
+  const a=ac(); if(!a) return;
+  const buf=a.createBuffer(1, a.sampleRate*dur, a.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+  const src=a.createBufferSource(); src.buffer=buf;
+  const f=a.createBiquadFilter(); f.type='bandpass'; f.frequency.value=freq; f.Q.value=8;
+  const g=a.createGain(); g.gain.value=vol;
+  src.connect(f); f.connect(g); g.connect(a.destination);
+  src.start(a.currentTime+t0);
+}
+const snd={
+  cash(){ tone(1320,0,.09,'sine',.09); tone(1760,.07,.12,'sine',.09); tone(2200,.15,.16,'sine',.07); },
+  siren(){ for(let i=0;i<3;i++){ tone(640,i*.42,.2,'sawtooth',.05,940); tone(940,i*.42+.2,.2,'sawtooth',.05,640); } },
+  cells(){ noiseHit(0,.14,820,.14); noiseHit(.18,.14,760,.12); tone(180,.02,.25,'square',.05); noiseHit(.4,.2,700,.10); },
+  text(){ tone(880,0,.08,'sine',.07); tone(1318,.09,.14,'sine',.07); },
+};
+
+/* ---------- username (connected wallets only) ---------- */
+const NAME_RE=/^[A-Za-z0-9_]{3,15}$/;
+const NAME_BLOCK=['fuck','shit','bitch','cunt','nigg','fag','rape','nazi','hitler','kkk','kike','spic','chink','whore','slut','pedo','porn'];
+function nameClean(n){ const l=n.toLowerCase(); return !NAME_BLOCK.some(w=>l.includes(w)); }
+function nameTaken(n){
+  const l=n.toLowerCase();
+  if(simPlayers.some(p=>p.name.toLowerCase()===l)) return true;
+  if(rivals.some(r=>r.name.toLowerCase()===l)) return true;
+  try{
+    for(const k of Object.keys(localStorage)){
+      if(!k.startsWith('robinhoodz:') || k===profileKey()) continue;
+      const p=JSON.parse(localStorage.getItem(k)||'{}');
+      if((p.username||'').toLowerCase()===l) return true;
+    }
+  }catch(e){}
+  return false;
+}
+function trySetUsername(){
+  const n=document.getElementById('nameInput').value.trim();
+  if(!wallet.address){ toast('Usernames are for connected wallets only.', 'bad'); return; }
+  if(!NAME_RE.test(n)){ toast('3–15 letters, numbers, or underscores.', 'bad'); return; }
+  if(!nameClean(n)){ toast('That name won\'t fly on these streets. Pick another.', 'bad'); return; }
+  if(nameTaken(n)){ toast(`"${n}" is taken. Somebody beat you to it.`, 'bad'); return; }
+  eco.username=n; saveProfile();
+  toast(`✔ You're "${n}" now. The streets will remember it.`, 'res');
+  snd.text();
+}
+document.getElementById('nameSave').onclick=trySetUsername;
+document.getElementById('nameInput').addEventListener('keydown',e=>{
+  e.stopPropagation();                       // typing shouldn't move the player
+  if(e.key==='Enter') trySetUsername();
+});
+
+/* ---------- season claim at the First Feather Bank ---------- */
+async function claimFlow(){
+  if(!wallet.address){ toast('Connect a wallet to claim season winnings.', 'bad'); return; }
+  if(CLAIM_BANK_ADDRESS.startsWith('0xREPLACE')){ toast('The claim window opens after the token launches.', 'bad'); return; }
+  const eth=getProvider();
+  if(!eth){ toast('No wallet provider found.', 'bad'); return; }
+  try{
+    const data='0x'+SEL_CLAIMABLE+wallet.address.slice(2).toLowerCase().padStart(64,'0');
+    const res=await eth.request({method:'eth_call',params:[{to:CLAIM_BANK_ADDRESS,data},'latest']});
+    const amt=BigInt(res);
+    if(amt===0n){ toast('Nothing on the books for you this season. Climb the board.', 'bad'); return; }
+    const human=Number(amt/10n**14n)/10000;
+    toast(`🏦 ${human} $FETA on the books. Confirm the withdrawal in your wallet…`, 'res');
+    await eth.request({method:'eth_sendTransaction',
+      params:[{from:wallet.address, to:CLAIM_BANK_ADDRESS, data:'0x'+SEL_CLAIM}]});
+    sms('FIRST FEATHER BANK 🏦', `Withdrawal processed: ${human} $FETA to ${shortAddr(wallet.address)}. Funny how you rob us all week and bank with us on Sunday. Pleasure doing business.`);
+    snd.cash();
+  }catch(e){ toast('Claim cancelled or failed.', 'bad'); }
+}
+function nearBank(){
+  const b=buildings[0];   // FIRST FEATHER BANK
+  return Math.hypot(b.x+b.w/2-player.x, b.y+b.h+10-player.y)<60;
+}
+
+/* ---------- touch controls ---------- */
+const joy={x:0,y:0,id:null};
+let touchRob=false;
+// show touch controls only when the PRIMARY input is a finger (phones/tablets),
+// not merely because the device is touch-capable (touchscreen laptops).
+// Fallback: if the screen actually gets touched, bring the controls up.
+if(window.matchMedia && matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+addEventListener('touchstart', ()=>document.body.classList.add('touch'), {once:true, passive:true});
+const joyZone=document.getElementById('joyZone'), joyKnob=document.getElementById('joyKnob');
+function joySet(t){
+  const r=joyZone.getBoundingClientRect();
+  const cxr=r.left+r.width/2, cyr=r.top+r.height/2;
+  let dx=t.clientX-cxr, dy=t.clientY-cyr;
+  const len=Math.hypot(dx,dy), max=45;
+  if(len>max){ dx=dx/len*max; dy=dy/len*max; }
+  joy.x=dx/max; joy.y=dy/max;
+  joyKnob.style.left=(40+dx)+'px'; joyKnob.style.top=(40+dy)+'px';
+}
+function joyReset(){ joy.x=0; joy.y=0; joy.id=null; joyKnob.style.left='40px'; joyKnob.style.top='40px'; }
+joyZone.addEventListener('touchstart',e=>{ e.preventDefault(); joy.id=e.changedTouches[0].identifier; joySet(e.changedTouches[0]); });
+joyZone.addEventListener('touchmove', e=>{ e.preventDefault();
+  for(const t of e.changedTouches) if(t.identifier===joy.id) joySet(t); });
+joyZone.addEventListener('touchend',  e=>{ e.preventDefault(); joyReset(); });
+joyZone.addEventListener('touchcancel',()=>joyReset());
+const robBtn=document.getElementById('robBtn');
+robBtn.addEventListener('touchstart',e=>{ e.preventDefault(); touchRob=true; });
+robBtn.addEventListener('touchend',  e=>{ e.preventDefault(); touchRob=false; });
+robBtn.addEventListener('touchcancel',()=>touchRob=false);
+document.getElementById('qShop').onclick =()=>{ if(started) shopOpen?closeShop():openShop(); };
+document.getElementById('qGang').onclick =()=>{ if(started) gangOpen?closeGang():openGang(); };
+document.getElementById('qBoard').onclick=()=>{ if(started) boardOpen?closeBoard():openBoard(); };
+document.getElementById('qClaim').onclick=()=>{
+  if(!started) return;
+  if(nearBank()) claimFlow();
+  else toast('The claim window is at the First Feather Bank. Head to Bank Row.', 'bad');
+};
+
+function toast(msg, cls=''){
+  const el=document.createElement('div');
+  el.className='toast '+cls; el.textContent=msg;
+  const log=document.getElementById('log');
+  log.prepend(el); setTimeout(()=>el.remove(),5200);
+  if(log.children.length>5) log.lastChild.remove();
+}
+
+/* ---------- Character select & game entry ---------- */
+let started=false, introOpen=false;
+function enterGame(charIdx, restore){
+  const c=CHARS[charIdx];
+  player.pal=c.pal; player.charIdx=charIdx; player.frames=c.frames; player.grid=c.grid;
+  started=true; spawnWorld();
+  if(restore){
+    eco.feta=restore.feta||0;
+    // legacy saves stored a single 'aura' — split it
+    eco.lifetime = restore.lifetime ?? restore.aura ?? 0;
+    eco.rep      = restore.rep      ?? Math.round((restore.aura??0)*0.6);
+    eco.reserve=restore.reserve||0; eco.milestone=restore.milestone||100;
+    eco.lvl=restore.lvl||1;
+    eco.atk=restore.atk||0; eco.def=restore.def||0; eco.wins=restore.wins||0;
+    eco.gang=restore.gang||null; eco.strikes=restore.strikes||0; eco.ratT=restore.ratT||0;
+    eco.season=restore.season||1; eco.seasonT=restore.seasonT||600;
+    eco.stats=restore.stats||{robberies:0,convoys:0,heists:0,earned:0};
+    eco.username=restore.username||null;
+    if(eco.username) document.getElementById('nameInput').value=eco.username;
+    if(eco.gang && eco.gang.aura==null) eco.gang.aura=50;
+    (restore.items||[]).forEach(id=>{
+      const it=items.find(i=>i.id===id);
+      if(it && !it.owned){ it.owned=true; it.fn(); }
+    });
+    if(restore.x) player.x=restore.x;
+    if(restore.y) player.y=restore.y;
+  }
+  document.getElementById('title').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('hint').classList.remove('hidden');
+  if(restore){
+    toast(`Welcome back, ${c.name}. ${shortAddr(wallet.address)} · LVL ${eco.lvl} · ${eco.feta.toFixed(0)} 🧀 restored.`);
+  } else {
+    introOpen=true;
+    document.getElementById('loreBio').innerHTML=c.bio;
+    document.getElementById('intro').classList.remove('hidden');
+  }
+  saveProfile();
+}
+document.getElementById('btnStreets').onclick=()=>{
+  introOpen=false;
+  document.getElementById('intro').classList.add('hidden');
+  const c=CHARS[player.charIdx];
+  toast(`Welcome to the streets, ${c.name}. The rich won't rob themselves.`);
+  setTimeout(()=>sms('TUCK 📱', "New hood, huh? Heard about you. Start with the bankers on Bank Row — top hats, deep pockets, zero cardio. Build that aura and I'll text you when you're ready for bigger fish. Hit B if you need gear. This number burns in 24h."), 1200);
+};
+const charsEl=document.getElementById('chars');
+CHARS.forEach((c,idx)=>{
+  const card=document.createElement('div'); card.className='card';
+  const cc=document.createElement('canvas'); cc.width=48; cc.height=64;
+  const ctx=cc.getContext('2d'); ctx.imageSmoothingEnabled=false;
+  drawSprite(ctx,c.grid,c.pal,6,0,3);
+  card.appendChild(cc);
+  const nm=document.createElement('p'); nm.textContent=c.name;
+  const ds=document.createElement('small'); ds.textContent=c.desc;
+  card.appendChild(nm); card.appendChild(ds);
+  card.onclick=()=>enterGame(idx,null);
+  charsEl.appendChild(card);
+});
+
+/* ---------- Update ---------- */
+let last=performance.now(), emitAcc=0;
+function collides(nx,ny){
+  if(nx<20||ny<20||nx>W-40||ny>H-60) return true;
+  for(const b of buildings)
+    if(nx+30>b.x && nx<b.x+b.w && ny+44>b.y && ny<b.y+b.h) return true;
+  return false;
+}
+function update(dt){
+  if(!started||shopOpen||introOpen||gangOpen||bustedOpen||boardOpen) return;
+  // --- movement ---
+  let dx=0,dy=0;
+  if(keys['w']||keys['arrowup'])dy-=1; if(keys['s']||keys['arrowdown'])dy+=1;
+  if(keys['a']||keys['arrowleft'])dx-=1; if(keys['d']||keys['arrowright'])dx+=1;
+  dx+=joy.x; dy+=joy.y;
+  const mlen=Math.hypot(dx,dy);
+  if(mlen>1){ dx/=mlen; dy/=mlen; }
+  player.moving = mlen>0.15;
+  const nx=player.x+dx*player.speed*dt*60, ny=player.y+dy*player.speed*dt*60;
+  if(!collides(nx,player.y)) player.x=nx;
+  if(!collides(player.x,ny)) player.y=ny;
+
+  // --- $FETA emissions: rep share × gang boost, taxed 1% — but only above the REP floor ---
+  const share=repShare();
+  if(share>0 && eco.rep>=EMIT_MIN_REP){
+    emitAcc += 0.6*share*gangMult()*dt;     // 0.6 🧀/sec city-wide pool
+    if(emitAcc>=1){
+      const whole=Math.floor(emitAcc); emitAcc-=whole;
+      const em=tax(whole); eco.feta+=em; eco.stats.earned+=em;
+    }
+  }
+  // --- rival gangs grind and raid ---
+  updateRivals(dt);
+  // --- season clock & the competition grinding around you ---
+  for(const sp2 of simPlayers){ sp2.rep+=sp2.g*dt*60; sp2.life+=sp2.g*dt*90; }
+  eco.seasonT-=dt;
+  if(eco.seasonT<=0) endSeason();
+  // --- 🐀 rat tag: gang aura bleeds while the city knows your name ---
+  if(eco.ratT>0){
+    eco.ratT=Math.max(0,eco.ratT-dt);
+    if(eco.gang){
+      eco.gang.aura=Math.max(0,(eco.gang.aura??50)-0.2*dt);
+      if(eco.gang.aura<=0){
+        sms(eco.gang.name+' ⚔', 'Vote came back unanimous. We don\'t run with rats. You\'re out. Leave the colors.');
+        eco.gang=null; eco.wins=0;
+      }
+    }
+    if(eco.ratT===0 && eco.gang) sms('TUCK 📱', 'Tag\'s faded. The city\'s moved on to fresher gossip. Your crew hasn\'t forgotten, though — rebuild that gang aura. 🐀→🕊');
+  }
+  // --- convoy event lifecycle ---
+  convoyTimer-=dt;
+  if(!convoy && !convoyAnnounced && convoyTimer<=12){
+    convoyAnnounced=true;
+    sms('TUCK 📱', '🚚 FEDERAL CONVOY inbound — 12 seconds. Payroll on board. Meet it at the curb.');
+  }
+  if(!convoy && convoyTimer<=0){
+    const vertical=Math.random()<0.5;
+    convoy = vertical
+      ? {x:900, y:100,  dir:1, route:{axis:'y',min:100, max:1110}, cool:0, robbed:false}
+      : {x:950, y:600,  dir:1, route:{axis:'x',min:950, max:1830}, cool:0, robbed:false};
+    convoyTimer=CONVOY_INTERVAL; convoyAnnounced=false;
+    toast('🚚 THE CONVOY IS ON THE STREETS', 'res');
+  }
+  if(convoy){
+    const sp=(convoy.robbed?3.2:1.5)*dt*60;
+    if(convoy.route.axis==='y'){ convoy.y+=convoy.dir*sp; if(convoy.y>convoy.route.max){convoy=null;} }
+    else { convoy.x+=convoy.dir*sp; if(convoy.x>convoy.route.max){convoy=null;} }
+    if(convoy===null && !convoyAnnounced) toast('The convoy cleared the district.', 'bad');
+  }
+  // --- heat decay ---
+  eco.heat=Math.max(0, eco.heat-4*dt);
+
+  // --- marks wander (trucks drive their routes) ---
+  for(const m of marks){
+    m.cool=Math.max(0,m.cool-dt);
+    if(m.route){
+      const sp=(m.cool>0?2.4:1.3)*dt*60;   // floors it after being robbed
+      if(m.route.axis==='y'){
+        m.y+=m.dir*sp;
+        if(m.y<m.route.min){m.y=m.route.min;m.dir=1;}
+        if(m.y>m.route.max){m.y=m.route.max;m.dir=-1;}
+      } else {
+        m.x+=m.dir*sp;
+        if(m.x<m.route.min){m.x=m.route.min;m.dir=1;}
+        if(m.x>m.route.max){m.x=m.route.max;m.dir=-1;}
+      }
+      continue;
+    }
+    m.wanderT-=dt;
+    if(m.wanderT<=0){ m.wanderT=rand(1,3); const a=rand(0,Math.PI*2); m.vx=Math.cos(a)*0.7; m.vy=Math.sin(a)*0.7; }
+    const mx=m.x+m.vx*dt*60, my=m.y+m.vy*dt*60;
+    if(!collides(mx,m.y)) m.x=mx; else m.vx*=-1;
+    if(!collides(m.x,my)) m.y=my; else m.vy*=-1;
+  }
+  // --- guards: patrol, PURSUE when you're hot, bust on contact ---
+  for(const g of guards){
+    if(!onDuty(g)) continue;
+    const d=Math.hypot(g.x-player.x,g.y-player.y);
+    const hot=eco.heat>60;
+    if(hot && d<340 && !g.chase){
+      if(!guards.some(o=>o.chase)) snd.siren();    // first unit calls it in
+      g.chase=true;                                // spotted — foot pursuit
+    }
+    if(!hot || d>520) g.chase=false;               // cooled off or shaken
+    if(g.chase){
+      const sp=2.45*dt*60;                         // just slower than you — barely
+      const ang=Math.atan2(player.y-g.y, player.x-g.x);
+      const nx=g.x+Math.cos(ang)*sp, ny=g.y+Math.sin(ang)*sp;
+      if(!collides(nx,g.y-20)) g.x=nx;             // buildings block them — juke the corners
+      if(!collides(g.x,ny-20)) g.y=ny;
+      if(d<34){ bustPlayer(); g.chase=false; }
+    } else {
+      // drift back to the assigned beat, then resume the route
+      const off = g.axis==='y' ? g.hx-g.x : g.hy-g.y;
+      if(Math.abs(off)>3){
+        const back=1.4*dt*60*Math.sign(off);
+        if(g.axis==='y') g.x+=back; else g.y+=back;
+      } else {
+        if(g.axis==='y'){ g.x=g.hx; g.y=Math.max(g.min,Math.min(g.max,g.y)); }
+        else            { g.y=g.hy; g.x=Math.max(g.min,Math.min(g.max,g.x)); }
+        const sp=1.4*dt*60;
+        if(g.axis==='y'){ g.y+=g.dir*sp; if(g.y<g.min||g.y>g.max)g.dir*=-1; }
+        else { g.x+=g.dir*sp; if(g.x<g.min||g.x>g.max)g.dir*=-1; }
+      }
+    }
+  }
+  // --- robbing ---
+  // --- targeting: convoy first, then doors, then street marks ---
+  robTarget=null; robKind=null; robLocked=false; robNeed=0;
+  if(convoy && !convoy.robbed && Math.hypot(convoy.x-player.x,convoy.y-player.y)<58){
+    robTarget=convoy; robKind='convoy';
+    if(eco.lvl<CONVOY_LVL){ robLocked=true; robNeed=CONVOY_LVL; }
+  }
+  if(!robTarget) for(const b of buildings){
+    b.cool=Math.max(0,(b.cool||0)-dt);
+    if(b.cool>0) continue;
+    const ddx=b.x+b.w/2, ddy=b.y+b.h+10;
+    if(Math.hypot(ddx-player.x,ddy-player.y)<46){
+      robTarget=b; robKind='building';
+      if(eco.lvl<BUILDING_LVL){ robLocked=true; robNeed=BUILDING_LVL; }
+      break;
+    }
+  }
+  if(!robTarget){
+    for(const m of marks){
+      if(m.cool>0) continue;
+      if(Math.hypot(m.x-player.x,m.y-player.y)<52){
+        robTarget=m; robKind='mark';
+        if(eco.lvl<m.lvl){ robLocked=true; robNeed=m.lvl; }
+        break;
+      }
+    }
+  }
+  if(robTarget && !robLocked && (keys['e']||touchRob)){
+    robProg+=dt/(robKind==='mark'?1.1:(robKind==='convoy'?1.8:3.0));
+    if(robProg>=1){
+      if(robKind==='convoy'){
+        const gross=Math.round(rand(80,160));
+        const net=tax(gross);
+        eco.feta+=net;
+        const auraGain=Math.round(20*player.auraMult);
+        gainAura(auraGain);
+        if(copWitness()){ eco.heat=100; toast('👮 A COP SAW THE WHOLE THING — heat maxed!', 'bad'); }
+        else eco.heat=Math.min(100, eco.heat+35*player.heatMult);
+        robTarget.robbed=true; snd.cash();
+        eco.stats.convoys++; eco.stats.earned+=net;
+        toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 (1% to Reserve) · +${auraGain} ✦⚔`, 'res');
+      } else if(robKind==='building'){
+        const gross=Math.round(rand(robTarget.heist[0],robTarget.heist[1]));
+        const net=tax(gross);
+        eco.feta+=net;
+        const auraGain=Math.round(45*player.auraMult);
+        gainAura(auraGain);
+        if(copWitness()){ eco.heat=100; toast('👮 CRACKED IT IN FRONT OF A COP. Bold. Heat maxed.', 'bad'); }
+        else eco.heat=Math.min(100, 100*player.heatMult);   // alarms blare
+        robTarget.cool=60;
+        snd.cash();
+        eco.stats.heists++; eco.stats.earned+=net;
+        toast(`🏦 HEIST: cracked ${robTarget.label} for +${net.toFixed(2)} 🧀 (1% to Reserve) · +${auraGain} ✦⚔`, 'res');
+      } else {
+        const auraGain=Math.round(robTarget.aura*player.auraMult);
+        gainAura(auraGain);
+        if(copWitness()){ eco.heat=100; toast('👮 WITNESSED — that badge was RIGHT THERE. Heat maxed!', 'bad'); }
+        else eco.heat=Math.min(100, eco.heat+22*player.heatMult);
+        robTarget.cool=12; robTarget.wanderT=0;
+        snd.cash();
+        eco.stats.robberies++;
+        toast(`Robbed a ${robTarget.kind}: +${auraGain} ✦ AURA · +${auraGain} ⚔ REP — respect, not cheese.`);
+      }
+      robProg=0;
+    }
+  } else robProg=Math.max(0,robProg-dt*2);
+
+  // --- HUD ---
+  document.getElementById('uiFeta').textContent=eco.feta.toFixed(2);
+  document.getElementById('uiAura').textContent=Math.round(eco.lifetime);
+  document.getElementById('uiRep').textContent=Math.round(eco.rep);
+  document.getElementById('uiStrikes').textContent='⛓ '+eco.strikes+'/3'+(eco.ratT>0?' · 🐀 '+Math.ceil(eco.ratT)+'s':'');
+  document.getElementById('uiLvl').textContent=eco.lvl;
+  document.getElementById('uiRes').textContent=eco.reserve.toFixed(2);
+  document.getElementById('heatfill').style.width=eco.heat+'%';
+}
+
+/* ---------- Render ---------- */
+function render(){
+  cx.fillStyle='#0d1226'; cx.fillRect(0,0,VW,VH);
+  if(!started){ return; }
+  const camX=Math.max(0,Math.min(W-VW,player.x-VW/2));
+  const camY=Math.max(0,Math.min(H-VH,player.y-VH/2));
+  cx.save(); cx.translate(-camX,-camY);
+
+  // districts
+  for(const d of districts){
+    cx.fillStyle=d.col; cx.fillRect(d.x,d.y,d.w,d.h);
+    cx.fillStyle='rgba(255,255,255,.08)';
+    cx.font='bold 34px Courier New'; cx.fillText(d.name, d.x+24, d.y+48);
+  }
+  // ---- roads: asphalt, curb outlines, center dashes ----
+  const roads=[{x:868,y:60,w:64,h:1080},{x:920,y:568,w:940,h:64}];
+  for(const r of roads){ cx.fillStyle='#10162b'; cx.fillRect(r.x,r.y,r.w,r.h); }
+  cx.strokeStyle='#3d4870'; cx.lineWidth=3;                       // curbs
+  for(const r of roads) cx.strokeRect(r.x+1.5,r.y+1.5,r.w-3,r.h-3);
+  cx.fillStyle='#10162b'; cx.fillRect(868,568,64,64);             // open the intersection
+  cx.strokeStyle='#c9a227'; cx.lineWidth=3; cx.setLineDash([16,12]);
+  cx.beginPath(); cx.moveTo(900,70); cx.lineTo(900,1130);
+  cx.moveTo(930,600); cx.lineTo(1850,600); cx.stroke();
+  cx.setLineDash([]);
+
+  // ---- crosswalk stripes at the junction ----
+  cx.fillStyle='rgba(232,236,245,.85)';
+  for(let x=874;x<=920;x+=11){ cx.fillRect(x,546,6,20); cx.fillRect(x,634,6,20); } // north & south
+  for(let y=574;y<=620;y+=11){ cx.fillRect(936,y,20,6); }                          // east
+
+  // ---- buildings: sidewalk apron, curb line, doors & steps ----
+  buildings.forEach((b,i)=>{
+    // sidewalk with curb outline separating it from the street
+    const sw=16, sx=b.x-sw, sy=b.y-sw, sww=b.w+sw*2, swh=b.h+sw*2;
+    cx.fillStyle='#333d5e'; cx.fillRect(sx,sy,sww,swh);
+    cx.strokeStyle='#4a5680'; cx.lineWidth=2; cx.strokeRect(sx+1,sy+1,sww-2,swh-2);
+    cx.strokeStyle='#2a3352'; cx.lineWidth=1;                     // pavement joints
+    cx.beginPath();
+    for(let jx=sx+20;jx<sx+sww;jx+=20){ cx.moveTo(jx,sy); cx.lineTo(jx,sy+swh); }
+    cx.stroke();
+    // building body
+    const st=b.style;
+    cx.fillStyle='#0a0f1f'; cx.fillRect(b.x+5,b.y+5,b.w,b.h);            // drop shadow
+    cx.fillStyle=st.wall; cx.fillRect(b.x,b.y,b.w,b.h);
+    cx.strokeStyle=st.trim; cx.lineWidth=2; cx.strokeRect(b.x+1,b.y+1,b.w-2,b.h-2);
+    cx.fillStyle=st.trim; cx.fillRect(b.x,b.y,b.w,7);                    // parapet
+    if(st.cols){                                                          // classical pilasters
+      cx.fillStyle=st.colCol;
+      cx.fillRect(b.x+8,b.y+18,8,b.h-18); cx.fillRect(b.x+b.w-16,b.y+18,8,b.h-18);
+      cx.fillRect(b.x,b.y+16,b.w,4);                                      // entablature
+    }
+    if(st.win==='brick'){                                                 // brick courses
+      cx.strokeStyle=st.trim; cx.lineWidth=1; cx.beginPath();
+      for(let by=b.y+14;by<b.y+b.h;by+=8){ cx.moveTo(b.x+2,by); cx.lineTo(b.x+b.w-2,by); }
+      cx.stroke();
+    }
+    cx.fillStyle='#f2c341'; cx.font='10px Courier New';
+    cx.fillText(b.label,b.x+8,b.y+16);
+    // door geometry first so windows can avoid it
+    const doorW=st.door==='steel'?28:22, doorH=26, dx=b.x+b.w/2-doorW/2, dy=b.y+b.h-doorH;
+    const lit='#e8c25a';
+    const clearOfDoor=(wx,ww,wy,wh)=>!(wx+ww>dx-5 && wx<dx+doorW+5 && wy+wh>dy-6);
+    // windows by style (some lit gold — the rich work late)
+    if(st.win==='grid'){
+      for(let wx=b.x+16;wx<b.x+b.w-24;wx+=26)
+        for(let wy=b.y+28;wy<b.y+b.h-16;wy+=24)
+          if(clearOfDoor(wx,12,wy,10)){
+            cx.fillStyle=((wx*13+wy*7)%23<6)?lit:st.winCol; cx.fillRect(wx,wy,12,10);
+          }
+    } else if(st.win==='glass'){
+      for(let wx=b.x+14;wx<b.x+b.w-26;wx+=24){
+        if(!clearOfDoor(wx,16,b.y+26,b.h)) continue;
+        cx.fillStyle=st.winCol; cx.fillRect(wx,b.y+26,16,b.h-44);
+        cx.strokeStyle=st.trim; cx.lineWidth=1; cx.beginPath();
+        for(let fy=b.y+42;fy<b.y+b.h-20;fy+=16){ cx.moveTo(wx,fy); cx.lineTo(wx+16,fy); }
+        cx.stroke();
+      }
+    } else if(st.win==='balcony'){
+      for(let wy=b.y+30;wy<b.y+b.h-18;wy+=26){
+        cx.fillStyle=st.colCol; cx.fillRect(b.x+6,wy+12,b.w-12,2);         // railing
+        for(let wx=b.x+16;wx<b.x+b.w-26;wx+=30)
+          if(clearOfDoor(wx,16,wy,10)){
+            cx.fillStyle=((wx*11+wy*5)%19<5)?lit:st.winCol; cx.fillRect(wx,wy,16,10);
+          }
+      }
+    } else if(st.win==='slits'){
+      for(let wx=b.x+18;wx<b.x+b.w-38;wx+=46)
+        for(let wy=b.y+32;wy<b.y+b.h-18;wy+=30)
+          if(clearOfDoor(wx,20,wy,6)){
+            cx.fillStyle=((wx+wy)%37<8)?lit:st.winCol; cx.fillRect(wx,wy,20,6);
+          }
+    } else if(st.win==='brick'){
+      for(let wx=b.x+16;wx<b.x+b.w-26;wx+=32)
+        for(let wy=b.y+28;wy<b.y+b.h-16;wy+=26)
+          if(clearOfDoor(wx,14,wy,12)){
+            cx.fillStyle=st.trim; cx.fillRect(wx-1,wy-1,16,14);            // sill frame
+            cx.fillStyle=((wx*17+wy*3)%29<7)?lit:st.winCol; cx.fillRect(wx,wy,14,12);
+          }
+    }
+    // striped awning over the door
+    if(st.awn){
+      const aw=doorW+22, ax=b.x+b.w/2-aw/2, ay=dy-12;
+      for(let k=0;k<Math.ceil(aw/8);k++){
+        cx.fillStyle=st.awn[k%2]; cx.fillRect(ax+k*8,ay,Math.min(8,aw-k*8),8);
+      }
+      cx.fillStyle=st.trim; cx.fillRect(ax,ay+8,aw,2);                     // awning lip
+    }
+    // door variants
+    cx.fillStyle='#1b2340'; cx.fillRect(dx-3,dy-4,doorW+6,doorH+4);        // frame
+    if(st.door==='steel'){                                                  // vault door + wheel
+      cx.fillStyle='#565e6c'; cx.fillRect(dx,dy,doorW,doorH);
+      cx.fillStyle='#3f4652'; cx.fillRect(dx+2,dy+2,doorW-4,doorH-4);
+      cx.strokeStyle='#f2c341'; cx.lineWidth=2;
+      cx.beginPath(); cx.arc(dx+doorW/2,dy+doorH/2,5,0,7); cx.stroke();
+      cx.beginPath();
+      cx.moveTo(dx+doorW/2-5,dy+doorH/2); cx.lineTo(dx+doorW/2+5,dy+doorH/2);
+      cx.moveTo(dx+doorW/2,dy+doorH/2-5); cx.lineTo(dx+doorW/2,dy+doorH/2+5);
+      cx.stroke();
+      cx.fillStyle='#8a93a3';                                               // corner rivets
+      cx.fillRect(dx+2,dy+2,2,2); cx.fillRect(dx+doorW-4,dy+2,2,2);
+      cx.fillRect(dx+2,dy+doorH-4,2,2); cx.fillRect(dx+doorW-4,dy+doorH-4,2,2);
+    } else if(st.door==='shutter'){                                         // roll-up shutter
+      cx.fillStyle='#5c6b7d'; cx.fillRect(dx,dy,doorW,doorH);
+      cx.strokeStyle='#3d4a5a'; cx.lineWidth=1; cx.beginPath();
+      for(let sy2=dy+3;sy2<dy+doorH;sy2+=4){ cx.moveTo(dx,sy2); cx.lineTo(dx+doorW,sy2); }
+      cx.stroke();
+      cx.fillStyle='#26303c'; cx.fillRect(dx+doorW/2-4,dy+doorH-5,8,3);     // handle
+    } else {                                                                 // wooden door
+      cx.fillStyle='#5c3a24'; cx.fillRect(dx,dy,doorW,doorH);
+      cx.fillStyle='#8d5a3b'; cx.fillRect(dx+2,dy+2,doorW-4,doorH-8);
+      cx.fillStyle='#f2c341'; cx.fillRect(dx+doorW-6,dy+doorH/2,3,3);
+    }
+    // front steps spilling onto the sidewalk
+    cx.fillStyle='#3f4a72'; cx.fillRect(dx-4, b.y+b.h,   doorW+8, 6);
+    cx.fillStyle='#39436a'; cx.fillRect(dx-7, b.y+b.h+6, doorW+14,6);
+    cx.strokeStyle='#232b47'; cx.lineWidth=1;
+    cx.strokeRect(dx-4.5,b.y+b.h+.5,doorW+9,6);
+    cx.strokeRect(dx-7.5,b.y+b.h+6.5,doorW+15,6);
+    // neon sign mounted over the door
+    const tN=performance.now()/1000;
+    let glow=0.72+0.28*Math.sin(tN*2.2+i*1.7);
+    if(((tN*1.3+i*0.9)%6)<0.09) glow*=0.15;          // occasional flicker-out
+    cx.font='bold 11px Courier New';
+    const tw=cx.measureText(b.neon).width;
+    const nw=tw+18, nx=b.x+b.w/2-nw/2, nyS=dy-(b.style.awn?36:26);
+    cx.fillStyle='#0a0f1f'; cx.fillRect(nx,nyS,nw,18); // sign box
+    cx.fillStyle='#1b2340'; cx.fillRect(nx+nw/2-2,nyS+18,4,4); // bracket to door frame
+    cx.save();
+    cx.globalAlpha=glow; cx.shadowColor=b.neonCol; cx.shadowBlur=12;
+    cx.strokeStyle=b.neonCol; cx.lineWidth=1.5;
+    cx.strokeRect(nx+1.5,nyS+1.5,nw-3,15);            // neon tube border
+    cx.fillStyle=b.neonCol; cx.textAlign='center';
+    cx.fillText(b.neon, b.x+b.w/2, nyS+13);
+    cx.fillText(b.neon, b.x+b.w/2, nyS+13);           // double pass = hot core
+    cx.restore(); cx.textAlign='left';
+  });
+  // marks
+  cx.textAlign='center';
+  const stride=Math.floor(performance.now()/125);   // 8 steps/sec
+  for(const m of marks){
+    if(m.route){ // armored truck: rotate onto the vertical avenue, flip on reverse
+      cx.save(); cx.translate(m.x,m.y);
+      if(m.route.axis==='y') cx.rotate(m.dir>0 ? Math.PI/2 : -Math.PI/2);
+      drawSprite(cx,m.grid,m.pal,-33,-15,3, m.route.axis==='x'&&m.dir<0);
+      cx.restore();
+    } else {
+      const moving=Math.hypot(m.vx,m.vy)>0.1;
+      drawSprite(cx, stepFrame(m.frames,moving,stride+m.ph), m.pal, m.x-18, m.y-32, 3);
+    }
+    cx.fillStyle=m.col; cx.font='9px Courier New';
+    cx.fillText(m.cool>0?'(spooked)':m.kind, m.x, m.y+(m.route?32:26));
+  }
+  // guards
+  for(const g of guards){
+    if(!onDuty(g)) continue;
+    drawSprite(cx, stepFrame(COP_F,true,stride+g.ph), COP_PAL, g.x-18, g.y-32, 3);
+    cx.strokeStyle='rgba(90,143,214,.18)'; cx.lineWidth=2;               // sight ring — stay outside it
+    cx.beginPath(); cx.arc(g.x,g.y-8,COP_SIGHT,0,7); cx.stroke();
+    if(g.chase){
+      cx.strokeStyle='rgba(229,72,77,.7)'; cx.beginPath(); cx.arc(g.x,g.y-8,42,0,7); cx.stroke();
+      cx.fillStyle='#e5484d'; cx.font='bold 16px Courier New'; cx.textAlign='center';
+      cx.fillText('!', g.x, g.y-44); cx.textAlign='left';
+    } else if(eco.heat>60){
+      cx.strokeStyle='rgba(229,72,77,.55)'; cx.beginPath(); cx.arc(g.x,g.y-8,70,0,7); cx.stroke();
+    }
+  }
+  cx.textAlign='left';
+  // convoy
+  if(convoy){
+    cx.save(); cx.translate(convoy.x,convoy.y);
+    if(convoy.route.axis==='y') cx.rotate(Math.PI/2);
+    drawSprite(cx,TRUCK_GRID,TRUCK_PAL,-33,-15,3);
+    cx.restore();
+    cx.fillStyle='#f2c341'; cx.font='bold 9px Courier New'; cx.textAlign='center';
+    cx.fillText(convoy.robbed?'(hit — speeding off)':'FEDERAL CONVOY 🧀', convoy.x, convoy.y+32);
+    cx.textAlign='left';
+  }
+  // player
+  drawSprite(cx, stepFrame(player.frames||PLAYER_F, player.moving, stride), player.pal, player.x-18, player.y-24, 3);
+  // rob prompt / progress
+  if(robTarget){
+    cx.font='10px Courier New'; cx.textAlign='center';
+    if(robKind==='building' && robTarget===buildings[0] && wallet.address){
+      cx.fillStyle='#0a0f1f'; cx.fillRect(player.x-70,player.y-80,140,13);
+      cx.fillStyle='#7ee08a';
+      cx.fillText('[C] CLAIM SEASON PAYOUT', player.x, player.y-70);
+    }
+    if(robLocked){
+      cx.fillStyle='#0a0f1f'; cx.fillRect(player.x-58,player.y-64,116,14);
+      cx.fillStyle='#e5484d';
+      cx.fillText(`🔒 LOCKED · REACH LVL ${robNeed}`, player.x, player.y-54);
+    } else {
+      cx.fillStyle='#0a0f1f'; cx.fillRect(player.x-42,player.y-52,84,10);
+      cx.fillStyle='#f2c341'; cx.fillRect(player.x-40,player.y-50,80*Math.min(1,robProg),6);
+      cx.fillStyle='#e8ecf5';
+      const label = robKind==='building' ? (robProg>0?'CRACKING...':'HOLD [E] — HIT '+robTarget.neon)
+        : robKind==='convoy' ? (robProg>0?'JACKING...':'HOLD [E] — HIT THE CONVOY')
+        : (robProg>0?'ROBBING...':'HOLD [E] TO ROB');
+      cx.fillText(label, player.x, player.y-58);
+    }
+    cx.textAlign='left';
+  }
+  cx.restore();
+  // vignette
+  const g=cx.createRadialGradient(VW/2,VH/2,260,VW/2,VH/2,620);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.45)');
+  cx.fillStyle=g; cx.fillRect(0,0,VW,VH);
+}
+
+/* ---------- Loop ---------- */
+function loop(t){
+  const dt=Math.min(0.05,(t-last)/1000); last=t;
+  update(dt); render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
