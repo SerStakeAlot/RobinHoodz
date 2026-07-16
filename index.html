@@ -238,10 +238,10 @@
       <div id="phoneNotch"></div>
       <img class="fetalogo" id="phoneLogo" alt="$FETA">
       <div id="phoneView"><div id="phoneTrack">
-        <div class="ppage"><div class="pico">⏳</div><div class="plab">PENDING</div><b id="uiFeta">0</b><small>🧀 this season · pays out at the horn via the ClaimBank</small></div>
+        <div class="ppage"><div class="pico">⏳</div><div class="plab">PENDING</div><b id="uiFeta">0</b><small>🧀 this season · pays at the horn via the ClaimBank · Street License required</small></div>
         <div class="ppage"><div class="pico">✦</div><div class="plab">AURA</div><b id="uiAura">0</b><small>lifetime street cred · drives your level, can never be taken</small></div>
         <div class="ppage"><div class="pico">⚔</div><div class="plab">REP</div><b id="uiRep">0</b><small>volatile · sets your emission share · wiped if you take the fall</small></div>
-        <div class="ppage"><div class="pico">🏛</div><div class="plab">RESERVE</div><b id="uiRes">—</b><small>the Feather-Ral treasury · live on-chain balance</small></div>
+        <div class="ppage"><div class="pico">🏛</div><div class="plab">RESERVE</div><b id="uiRes">—</b><small>the Feather-Ral treasury · trade tax accrues in ETH · live on-chain</small></div>
         <div class="ppage"><div class="pico" style="color:#57d7e8">●</div><div class="plab">LIVE</div><b id="uiLive">—</b><div id="liveList"></div></div>
         <div class="ppage"><div class="pico">🪪</div><div class="plab">USERNAME</div><b id="uNameShow">—</b>
           <div id="nameChip" style="display:none"><input id="nameInput" maxlength="15" placeholder="username"><button id="nameSave">✔</button></div>
@@ -281,6 +281,21 @@
     <div id="chars"></div>
     <div class="tag">Pick your hood</div>
     <a href="whitepaper.html" target="_blank" style="color:var(--hood);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--hood)">📜 WHITEPAPER</a>
+  </div>
+
+  <!-- Street License: one-time 0.01 ETH registration for wallet accounts -->
+  <div id="license" class="overlay hidden">
+    <h2 style="color:var(--feta);letter-spacing:3px">🪪 STREET LICENSE</h2>
+    <div class="lorebox">
+      New face in New Sherwood. The city charges a one-time registration:
+      <b style="color:var(--feta)">0.01 ETH</b>, paid straight to the Feather-Ral Reserve.
+      Your license marks this wallet as <b style="color:#7ee08a">payout-eligible</b> —
+      leaderboard ranking, season claims at the First Feather Bank, the works.<br><br>
+      <b style="color:var(--alert)">Delete your profile and the license burns with it.</b>
+      New run, new fee. The streets don't do refunds.
+    </div>
+    <button class="px" id="btnLicense">PAY 0.01 ETH &amp; REGISTER</button>
+    <button class="px" id="btnLicBack" style="background:#2a3352;color:var(--ink)">Back</button>
   </div>
 
   <!-- Intro lore (new games) -->
@@ -422,7 +437,7 @@ function saveProfile(){
     reserve: eco.reserve, milestone: eco.milestone, lvl: eco.lvl,
     atk: eco.atk, def: eco.def, wins: eco.wins, gang: eco.gang, strikes: eco.strikes, ratT: Math.round(eco.ratT),
     season: eco.season, seasonT: Math.round(eco.seasonT), stats: eco.stats,
-    username: eco.username||null,
+    username: eco.username||null, licensed: !!eco.licensed,
     items: items.filter(i=>i.owned).map(i=>i.id),
     x: Math.round(player.x), y: Math.round(player.y),
   }));
@@ -435,9 +450,40 @@ function proceedFromWallet(addr){
   if(addr) document.getElementById('nameChip').style.display='flex';
   if(addr) refreshChainBalance();
   const p = loadProfile();
-  if(p && Number.isInteger(p.charIdx)) enterGame(p.charIdx, p);
-  else document.getElementById('title').classList.remove('hidden');
+  if(p && Number.isInteger(p.charIdx)){
+    eco.licensed = !!p.licensed || !addr;      // guests aren't licensable; old saves grandfather in
+    enterGame(p.charIdx, p);
+  }
+  else if(addr) document.getElementById('license').classList.remove('hidden');  // new wallet = pay first
+  else document.getElementById('title').classList.remove('hidden');             // guests play free, unranked
 }
+
+/* ---------- Street License: 0.01 ETH → Reserve, once per profile ---------- */
+const LICENSE_WEI='0x2386f26fc10000';   // 0.01 ETH
+async function payLicense(){
+  const eth=getProvider();
+  if(!eth){ toast('No wallet provider found.', 'bad'); return; }
+  const btn=document.getElementById('btnLicense');
+  try{
+    btn.disabled=true; btn.textContent='CONFIRM IN WALLET…';
+    await eth.request({method:'eth_sendTransaction',
+      params:[{from:wallet.address, to:RESERVE_ADDRESS, value:LICENSE_WEI}]});
+    eco.licensed=true;
+    snd.cash();
+    document.getElementById('license').classList.add('hidden');
+    document.getElementById('title').classList.remove('hidden');
+    toast('🪪 Registered. Welcome to New Sherwood — pick your hood.', 'res');
+    setTimeout(refreshReserveBalance,5000);
+  }catch(e){
+    toast('License payment cancelled.', 'bad');
+    btn.disabled=false; btn.textContent='PAY 0.01 ETH & REGISTER';
+  }
+}
+document.getElementById('btnLicense').onclick=payLicense;
+document.getElementById('btnLicBack').onclick=()=>{
+  document.getElementById('license').classList.add('hidden');
+  document.getElementById('wallet').classList.remove('hidden');
+};
 
 /* ---------- live on-chain $FETA balance (display-only — never touches eco) ---------- */
 async function refreshChainBalance(){
@@ -477,13 +523,18 @@ async function payFeta(units, label){
 
 /* ---------- live on-chain Reserve balance (public RPC — works for guests too) ---------- */
 async function refreshReserveBalance(){
+  const rpc=(m,p)=>fetch(CHAIN_CONFIG.rpcUrls[0],{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({jsonrpc:'2.0',id:1,method:m,params:p})}).then(r=>r.json());
   try{
     const data='0x70a08231'+RESERVE_ADDRESS.slice(2).toLowerCase().padStart(64,'0');
-    const r=await fetch(CHAIN_CONFIG.rpcUrls[0],{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_call',params:[{to:FETA_TOKEN_ADDRESS,data},'latest']})});
-    const j=await r.json();
-    const bal=BigInt(j.result);
-    document.getElementById('uiRes').textContent=(Number(bal/10n**16n)/100).toLocaleString();
+    const [f,e]=await Promise.all([
+      rpc('eth_call',[{to:FETA_TOKEN_ADDRESS,data},'latest']),
+      rpc('eth_getBalance',[RESERVE_ADDRESS,'latest']),
+    ]);
+    const feta=BigInt(f.result), wei=BigInt(e.result);
+    document.getElementById('uiRes').innerHTML=
+      `Ξ ${(Number(wei/10n**12n)/1e6).toFixed(4)}<br>`+
+      `<span style="font-size:14px">${(Number(feta/10n**16n)/100).toLocaleString()} $FETA</span>`;
   }catch(e){ document.getElementById('uiRes').textContent='—'; }
 }
 document.getElementById('btnConnect').onclick = connectWallet;
@@ -1312,6 +1363,7 @@ function enterGame(charIdx, restore){
     eco.season=restore.season||1; eco.seasonT=restore.seasonT||600;
     eco.stats=restore.stats||{robberies:0,convoys:0,heists:0,earned:0};
     eco.username=restore.username||null;
+    eco.licensed=!!restore.licensed;
     if(eco.username) document.getElementById('nameInput').value=eco.username;
     if(eco.gang && eco.gang.aura==null) eco.gang.aura=50;
     (restore.items||[]).forEach(id=>{
