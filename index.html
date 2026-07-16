@@ -188,11 +188,9 @@ function nearBank(){
 
   <div id="hud" class="hidden">
     <div class="chip feta">🧀 $FETA <b id="uiFeta">0</b></div>
-    <div class="chip" id="chainChip" style="display:none">🧀 WALLET <b id="uiChain" style="color:#f2c341">—</b></div>
     <div class="chip aura">✦ AURA <b id="uiAura">0</b></div>
     <div class="chip rep">⚔ REP <b id="uiRep">0</b></div>
     <div class="chip lvl">✪ LVL <b id="uiLvl">1</b></div>
-    <div class="chip"><b id="uiWallet" style="color:#8b93ad;font-size:11px">GUEST</b></div>
     <div class="chip" id="nameChip" style="display:none;pointer-events:auto">
       <input id="nameInput" maxlength="15" placeholder="username">
       <button id="nameSave">✔</button>
@@ -321,6 +319,7 @@ const store = {
 
 /* ---------- wallet state & connect flow (EIP-1193 + EIP-6963 discovery) ---------- */
 const wallet = { address:null, chainOk:false };
+let chainFeta = null;   // last fetched on-chain $FETA balance (display-only)
 const shortAddr = a => a ? a.slice(0,6)+'…'+a.slice(-4) : 'GUEST';
 function wstatus(msg){ const el=document.getElementById('wstatus'); if(el) el.textContent=msg; }
 
@@ -359,8 +358,8 @@ async function connectWallet(){
         catch(e){ /* user declined adding the chain — profile still works */ }
       }
     }
-    eth.on?.('accountsChanged', a=>{ wallet.address=a[0]||null;
-      document.getElementById('uiWallet').textContent=shortAddr(wallet.address); });
+    eth.on?.('accountsChanged', a=>{ wallet.address=a[0]||null; chainFeta=null;
+      if(wallet.address) refreshChainBalance(); });
     proceedFromWallet(wallet.address);
   }catch(e){ wstatus('Connection rejected. You can still play as guest.'); }
 }
@@ -384,7 +383,6 @@ function loadProfile(){
 }
 function proceedFromWallet(addr){
   document.getElementById('wallet').classList.add('hidden');
-  document.getElementById('uiWallet').textContent = shortAddr(addr);
   if(addr) document.getElementById('nameChip').style.display='flex';
   if(addr) refreshChainBalance();
   const p = loadProfile();
@@ -402,11 +400,9 @@ async function refreshChainBalance(){
     const res  = await eth.request({ method:'eth_call',
       params:[{ to: FETA_TOKEN_ADDRESS, data }, 'latest'] });
     const bal  = BigInt(res);
-    const human = Number(bal / 10n**16n) / 100;   // BigInt math first — never float the raw value
-    document.getElementById('uiChain').textContent = human.toLocaleString();
-    document.getElementById('chainChip').style.display = 'flex';
+    chainFeta  = Number(bal / 10n**16n) / 100;   // BigInt math first — never float the raw value
   }catch(e){
-    document.getElementById('uiChain').textContent = '—';
+    chainFeta = null;
   }
 }
 document.getElementById('btnConnect').onclick = connectWallet;
@@ -1422,7 +1418,8 @@ function update(dt){
   } else robProg=Math.max(0,robProg-dt*2);
 
   // --- HUD ---
-  document.getElementById('uiFeta').textContent=eco.feta.toFixed(2);
+  document.getElementById('uiFeta').textContent =
+    (wallet.address && chainFeta!==null) ? chainFeta.toLocaleString() : eco.feta.toFixed(2);
   document.getElementById('uiAura').textContent=Math.round(eco.lifetime);
   document.getElementById('uiRep').textContent=Math.round(eco.rep);
   document.getElementById('uiStrikes').textContent='⛓ '+eco.strikes+'/3'+(eco.ratT>0?' · 🐀 '+Math.ceil(eco.ratT)+'s':'');
