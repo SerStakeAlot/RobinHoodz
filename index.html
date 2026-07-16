@@ -528,7 +528,7 @@ document.getElementById('btnLicBack').onclick=()=>{
 
 /* ---------- COMING SOON gate: hides the whole game while promoting.
    Set COMING_SOON=false (or open rhgame.fun/?dev=1) to restore the game. ---------- */
-const COMING_SOON = true;
+const COMING_SOON = false;
 if(COMING_SOON && new URLSearchParams(location.search).get('dev')!=='1'){
   document.getElementById('wallet').classList.add('hidden');
   document.getElementById('comingsoon').classList.remove('hidden');
