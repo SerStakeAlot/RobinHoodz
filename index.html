@@ -204,7 +204,8 @@
   .pbar i{display:block; height:100%; background:var(--feta); width:0%; transition:width .3s ease;}
   #tut{position:absolute; left:50%; transform:translateX(-50%); bottom:64px; width:min(600px,94vw);
     background:var(--panel); border:2px solid var(--feta); padding:12px 16px 8px; z-index:60;
-    font-size:13px; line-height:1.7;}
+    font-size:13px; line-height:1.7; cursor:pointer; user-select:none; -webkit-user-select:none;
+    touch-action:manipulation;}
   #tutGo{color:var(--feta); font-size:10px; letter-spacing:2px; text-align:right; margin-top:6px;
     animation:tutblink 1.2s steps(2) infinite;}
   @keyframes tutblink{50%{opacity:.25}}
@@ -1464,15 +1465,17 @@ const TUT_STEPS=[
   {t:"🚨 See that red bar up top? That's <b>HEAT</b>. Alarms max it, and robbing in front of a badge maxes it instantly. There's one cop walking this block — heat draws him like a magnet. Lay low and it cools."},
   {t:"🚚 A <b>FEDERAL CONVOY</b> is rolling down the east road RIGHT NOW — actual payroll on wheels. Chase it to the curb and <b>HOLD E</b> before it clears the district.", wait:'convoy'},
   {t:"⛓ Now the ugly part. Get caught at full heat and you do a <b>stint</b>: ⚔ REP wiped to zero. They'll offer you a deal — <b>SNITCH</b> and walk… but the whole city sees the 🐀 tag, and crews don't run with rats."},
-  {t:"📱 Your <b>burner phone</b> tracks everything — PENDING cheese, wallet BALANCE, LEVEL, the Reserve. <b>Press P</b> to flip it open.", wait:'phone'},
-  {t:"🏛 One last thing. Every week the horn blows and the <b>FEATHER-RAL RESERVE</b> pays the board's winners at the First Feather Bank. Go stand at its door and <b>press C</b> to claim your demo payout.", wait:'claim'},
+  {t:"📱 Your <b>burner phone</b> tracks everything — PENDING cheese, wallet BALANCE, LEVEL, the Reserve. <b>Press P</b> (or tap the 📱 button) to flip it open.", wait:'phone'},
+  {t:"🏛 One last thing. Every week the horn blows and the <b>FEATHER-RAL RESERVE</b> pays the board's winners at the First Feather Bank. Go stand at its door and <b>press C</b> (or tap the 💰 button) to claim your demo payout.", wait:'claim'},
   {t:"💸 That's the whole hustle, tourist. The fake cheese ends here — press <b>SPACE</b> and let's make it real."},
 ];
 function tutNeeds(){ return (TUT && tutStep>=0 && tutStep<TUT_STEPS.length) ? (TUT_STEPS[tutStep].wait||null) : null; }
 function tutShow(){
   const s=TUT_STEPS[tutStep];
   document.getElementById('tutText').innerHTML=s.t;
-  document.getElementById('tutGo').style.display=s.wait?'none':'block';
+  const go=document.getElementById('tutGo');
+  go.textContent=document.body.classList.contains('touch')?'▸ TAP TO CONTINUE':'▸ PRESS SPACE';
+  go.style.display=s.wait?'none':'block';
   document.getElementById('tut').classList.remove('hidden');
 }
 function tutNext(){
@@ -1512,6 +1515,7 @@ function startTutorial(){
 }
 document.getElementById('btnDemo').onclick=startTutorial;
 document.getElementById('btnTutConnect').onclick=()=>location.reload();
+document.getElementById('tut').addEventListener('pointerdown',e=>{ e.preventDefault(); tutAdvance(); });
 
 /* ---------- touch controls ---------- */
 const joy={x:0,y:0,id:null};
