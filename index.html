@@ -1087,6 +1087,10 @@ function renderGang(){
     inp.maxLength=18; inp.placeholder='Gang name…';
     inp.style.cssText='font-family:inherit;background:#0d1226;border:2px solid #2a3352;color:var(--ink);padding:8px 10px;width:60%;font-size:13px';
     const btn=document.createElement('button'); btn.className='px'; btn.textContent='FORM'; btn.style.marginLeft='8px';
+    inp.addEventListener('keydown',e=>{           // typing G/B/L/P etc. must not trigger hotkeys
+      e.stopPropagation();
+      if(e.key==='Enter') btn.click();
+    });
     btn.onclick=async ()=>{
       const nm=inp.value.trim();
       if(eco.lvl<GANG_LVL_REQ){ toast(`Gangs unlock at LVL ${GANG_LVL_REQ}.`, 'bad'); return; }
