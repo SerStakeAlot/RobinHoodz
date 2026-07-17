@@ -202,6 +202,12 @@
   .ppage small{color:var(--dim); font-size:10px; line-height:1.6; max-width:210px;}
   .pbar{width:210px; height:12px; border:2px solid #2a3352; background:#0d1226; margin:6px 0;}
   .pbar i{display:block; height:100%; background:var(--feta); width:0%; transition:width .3s ease;}
+  #tut{position:absolute; left:50%; transform:translateX(-50%); bottom:64px; width:min(600px,94vw);
+    background:var(--panel); border:2px solid var(--feta); padding:12px 16px 8px; z-index:60;
+    font-size:13px; line-height:1.7;}
+  #tutGo{color:var(--feta); font-size:10px; letter-spacing:2px; text-align:right; margin-top:6px;
+    animation:tutblink 1.2s steps(2) infinite;}
+  @keyframes tutblink{50%{opacity:.25}}
   #liveList{font-size:10px; color:#57d7e8; line-height:1.7; max-height:170px; overflow:auto; width:100%;}
   .parrow{
     position:absolute; bottom:10px; width:54px; height:30px; background:#0a0f1f; color:var(--ink);
@@ -288,8 +294,9 @@
     <h1>ROBINHOODZ</h1>
     <div class="tag">Rob the rich · Feed the Feather-Ral Reserve · Earn $FETA</div>
     <button class="px" id="btnConnect">🔗 Connect Wallet</button>
+    <button class="px" id="btnDemo" style="background:#2a3352;color:var(--ink)">🎓 Try the Streets — free demo</button>
     <button class="px" id="btnWipe" style="background:transparent;color:var(--dim);box-shadow:none;border:1px solid #2a3352;font-size:11px;padding:7px 14px">🗑 Delete saved profiles &amp; start fresh</button>
-    <div class="tag" id="wstatus">Connect your wallet to hit the streets — your run saves to your address.</div>
+    <div class="tag" id="wstatus">Connect your wallet to hit the streets — or take the free tour of Bank Row first.</div>
     <div style="display:flex;gap:22px;align-items:center">
       <a href="whitepaper.html" target="_blank" style="color:var(--hood);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--hood)">📜 READ THE WHITEPAPER</a>
       <a href="https://x.com/RobnHoodzGame" target="_blank" rel="noopener" style="color:var(--ink);font-size:12px;letter-spacing:2px;text-decoration:none;border-bottom:1px solid var(--ink)">𝕏 FOLLOW @RobnHoodzGame</a>
@@ -321,6 +328,20 @@
     </div>
     <button class="px" id="btnLicense">PAY 100,000 $FETA &amp; REGISTER</button>
     <button class="px" id="btnLicBack" style="background:#2a3352;color:var(--ink)">Back</button>
+  </div>
+
+  <!-- Guest demo tutorial: dialogue bar + closing CTA -->
+  <div id="tut" class="hidden"><div id="tutText"></div><div id="tutGo">▸ PRESS SPACE</div></div>
+  <div id="tutEnd" class="overlay hidden">
+    <h2 style="color:var(--feta);letter-spacing:3px">🎓 TOUR'S OVER</h2>
+    <div class="lorebox">
+      The cheese was fake. The streets are real.<br><br>
+      Out there every robbery builds <b>real ⚔ REP</b>, the horn blows every week, and the
+      <b style="color:var(--feta)">Feather-Ral Reserve pays winners in real on-chain $FETA</b>
+      at the First Feather Bank.<br><br>
+      <b style="color:#7ee08a">New Sherwood doesn't rob itself.</b>
+    </div>
+    <button class="px" id="btnTutConnect">🔗 CONNECT YOUR WALLET — GET ACTIVE ON THE STREETS</button>
   </div>
 
   <!-- Intro lore (new games) -->
@@ -466,6 +487,7 @@ const profileKey = () => 'robinhoodz:' + (wallet.address||'guest').toLowerCase()
 let profileOwner=null;   // storage key of the running profile — saves are locked to it
 function saveProfile(){
   if(!started) return;
+  if(TUT) return;                                           // demo runs never touch storage
   if(profileOwner && profileOwner!==profileKey()) return;   // wallet switched mid-run: never cross-save
   store.set(profileOwner||profileKey(), JSON.stringify({
     charIdx: player.charIdx, feta: eco.feta, lifetime: eco.lifetime, rep: eco.rep,
@@ -1293,7 +1315,8 @@ function phoneGo(i){
 }
 function openPhone(){ phoneOpen=true;
   document.getElementById('uNameShow').textContent=eco.username||'unclaimed';
-  document.getElementById('phone').classList.remove('hidden'); }
+  document.getElementById('phone').classList.remove('hidden');
+  if(TUT) tutEvent('phone'); }
 function closePhone(){ phoneOpen=false; document.getElementById('phone').classList.add('hidden'); }
 document.getElementById('pClose').onclick = closePhone;
 document.getElementById('phone').addEventListener('click', e=>{ if(e.target.id==='phone') closePhone(); });
@@ -1312,6 +1335,7 @@ document.getElementById('pNext').onclick=()=>phoneGo(phonePage+1);
 
 addEventListener('keydown',e=>{
   keys[e.key.toLowerCase()]=true;
+  if(TUT && e.code==='Space'){ e.preventDefault(); tutAdvance(); }
   if(e.key.toLowerCase()==='p' && started){ phoneOpen?closePhone():openPhone(); }
   if(phoneOpen){
     if(e.key==='ArrowLeft')  phoneGo(phonePage-1);
@@ -1400,6 +1424,7 @@ document.getElementById('nameInput').addEventListener('keydown',e=>{
 
 /* ---------- season claim at the First Feather Bank ---------- */
 async function claimFlow(){
+  if(TUT){ tutClaim(); return; }
   if(!wallet.address){ toast('Connect a wallet to claim season winnings.', 'bad'); return; }
   if(CLAIM_BANK_ADDRESS.startsWith('0xREPLACE')){ toast('The claim window opens after the token launches.', 'bad'); return; }
   const eth=getProvider();
@@ -1422,6 +1447,67 @@ function nearBank(){
   const b=buildings[0];   // FIRST FEATHER BANK
   return Math.hypot(b.x+b.w/2-player.x, b.y+b.h+10-player.y)<60;
 }
+
+/* ---------- guest demo: the Bank Row tour ----------
+   No wallet, no license, no saves, no websocket — one banker, one cop,
+   one block. Scripted by Tuck; SPACE advances, tasks advance themselves. */
+let TUT=false, tutStep=-1;
+const TUT_STEPS=[
+  {t:"🎓 <b>TUCK 📱:</b> Welcome to NEW SHERWOOD, tourist. This is the demo — one block, fake cheese, real lessons. Move with <b>WASD / arrows</b> (or the stick on touch)."},
+  {t:"See that <b>BANKER</b> strutting around Bank Row? Top hat, deep pockets, zero cardio. Walk up close and <b>HOLD E</b> (or the 💰 button) until the bar fills.", wait:'rob'},
+  {t:"💰 Felt good, right? Robbing <b>people</b> pays ✦ AURA and ⚔ REP — respect, not cheese. AURA is forever and drives your LEVEL. REP is your slice of the city's $FETA emissions… and it can be taken from you."},
+  {t:"The real cheese lives behind <b>doors</b>. Walk to the <b>FIRST FEATHER BANK</b> entrance and <b>HOLD E</b> to crack it. Fair warning: alarms WILL scream.", wait:'heist'},
+  {t:"🚨 See that red bar up top? That's <b>HEAT</b>. Alarms max it, and robbing in front of a badge maxes it instantly. There's one cop walking this block — heat draws him like a magnet. Lay low and it cools."},
+  {t:"🚚 A <b>FEDERAL CONVOY</b> is rolling down the east road RIGHT NOW — actual payroll on wheels. Chase it to the curb and <b>HOLD E</b> before it clears the district.", wait:'convoy'},
+  {t:"⛓ Now the ugly part. Get caught at full heat and you do a <b>stint</b>: ⚔ REP wiped to zero. They'll offer you a deal — <b>SNITCH</b> and walk… but the whole city sees the 🐀 tag, and crews don't run with rats."},
+  {t:"📱 Your <b>burner phone</b> tracks everything — PENDING cheese, wallet BALANCE, LEVEL, the Reserve. <b>Press P</b> to flip it open.", wait:'phone'},
+  {t:"🏛 One last thing. Every week the horn blows and the <b>FEATHER-RAL RESERVE</b> pays the board's winners at the First Feather Bank. Go stand at its door and <b>press C</b> to claim your demo payout.", wait:'claim'},
+  {t:"💸 That's the whole hustle, tourist. The fake cheese ends here — press <b>SPACE</b> and let's make it real."},
+];
+function tutNeeds(){ return (TUT && tutStep>=0 && tutStep<TUT_STEPS.length) ? (TUT_STEPS[tutStep].wait||null) : null; }
+function tutShow(){
+  const s=TUT_STEPS[tutStep];
+  document.getElementById('tutText').innerHTML=s.t;
+  document.getElementById('tutGo').style.display=s.wait?'none':'block';
+  document.getElementById('tut').classList.remove('hidden');
+}
+function tutNext(){
+  tutStep++;
+  if(tutStep>=TUT_STEPS.length){ tutFinish(); return; }
+  tutShow(); snd.text();
+}
+function tutAdvance(){ if(TUT && tutStep>=0 && tutStep<TUT_STEPS.length && !TUT_STEPS[tutStep].wait) tutNext(); }
+function tutEvent(k){ if(tutNeeds()===k) setTimeout(tutNext, 700); }
+function tutFinish(){
+  document.getElementById('tut').classList.add('hidden');
+  document.getElementById('tutEnd').classList.remove('hidden');
+}
+function tutSpawnConvoy(){
+  convoy={x:900, y:Math.min(950,Math.max(120,player.y-300)), dir:1,
+          route:{axis:'y',min:100,max:1110}, cool:0, robbed:false};
+  toast('🚚 THE CONVOY IS ON THE STREETS — east road', 'res');
+}
+function tutClaim(){
+  if(tutNeeds()!=='claim'){ toast('The claim window opens at the end of the tour.', 'bad'); return; }
+  eco.feta+=500; snd.cash();
+  sms('FEATHER-RAL RESERVE 🏛', 'DEMO PAYOUT: 500 🧀 credited. On the real streets this lands in your wallet as on-chain $FETA. Cute practice run.');
+  toast('🏦 +500 🧀 DEMO payout from the Reserve — real seasons pay real $FETA.', 'res');
+  tutEvent('claim');
+}
+function startTutorial(){
+  TUT=true;
+  document.getElementById('wallet').classList.add('hidden');
+  enterGame(0, null);                       // Loxley walks the tour
+  eco.lvl=10;                               // demo: every move unlocked
+  player.x=250; player.y=430;
+  marks=[makeMark(MARK_TYPES[0], 360, 430)];                          // one banker
+  guards=[{x:800,y:300,dir:1,axis:'y',min:150,max:1000,r:18,ph:0}];   // one cop
+  guards.forEach(g=>{ g.hx=g.x; g.hy=g.y; g.chase=false; });
+  convoy=null; convoyTimer=1e9; convoyAnnounced=true;   // convoys only spawn when the script says so
+  tutStep=-1; tutNext();
+}
+document.getElementById('btnDemo').onclick=startTutorial;
+document.getElementById('btnTutConnect').onclick=()=>location.reload();
 
 /* ---------- touch controls ---------- */
 const joy={x:0,y:0,id:null};
@@ -1505,10 +1591,10 @@ function enterGame(charIdx, restore){
   document.getElementById('title').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
   document.getElementById('hint').classList.remove('hidden');
-  wsConnect();
+  if(!TUT) wsConnect();
   if(restore){
     toast(`Welcome back, ${c.name}. ${shortAddr(wallet.address)} · LVL ${eco.lvl} · ${eco.feta.toFixed(0)} 🧀 restored.`);
-  } else {
+  } else if(!TUT){
     introOpen=true;
     document.getElementById('loreBio').innerHTML=c.bio;
     document.getElementById('intro').classList.remove('hidden');
@@ -1557,6 +1643,8 @@ function update(dt){
   const nx=player.x+dx*player.speed*dt*60, ny=player.y+dy*player.speed*dt*60;
   if(!collides(nx,player.y)) player.x=nx;
   if(!collides(player.x,ny)) player.y=ny;
+  // demo: the tour never leaves Bank Row (plus its stretch of road)
+  if(TUT){ player.x=Math.max(90,Math.min(925,player.x)); player.y=Math.max(90,Math.min(1110,player.y)); }
 
   // --- $FETA emissions: rep share × gang boost, taxed 1% — but only above the REP floor ---
   const share=repShare();
@@ -1572,7 +1660,7 @@ function update(dt){
   // --- season clock: global wall-clock horn — same deadline for every player ---
   const sNow=seasonNow();
   eco.seasonT=Math.max(0,(sNow.end-Date.now())/1000);
-  if(eco.season<sNow.n) endSeason();   // missed horn(s) offline → submit last active season now
+  if(!TUT && eco.season<sNow.n) endSeason();   // missed horn(s) offline → submit last active season now
   // --- 🐀 rat tag: gang aura bleeds while the city knows your name ---
   if(eco.ratT>0){
     eco.ratT=Math.max(0,eco.ratT-dt);
@@ -1588,7 +1676,7 @@ function update(dt){
   // --- convoy event lifecycle ---
   // When the live socket is up the SERVER spawns one shared convoy for everyone
   // (first hit wins). The local timer only runs as an offline fallback.
-  if(!(ws && ws.readyState===1 && wsId)){
+  if(!TUT && !(ws && ws.readyState===1 && wsId)){
     convoyTimer-=dt;
     if(!convoy && !convoyAnnounced && convoyTimer<=12){
       convoyAnnounced=true;
@@ -1609,6 +1697,7 @@ function update(dt){
     else { convoy.x+=convoy.dir*sp; if(convoy.x>convoy.route.max){convoy=null;} }
     if(convoy===null && !convoyAnnounced) toast('The convoy cleared the district.', 'bad');
   }
+  if(TUT && !convoy && tutNeeds()==='convoy') tutSpawnConvoy();   // the demo convoy always comes back
   // --- heat decay ---
   eco.heat=Math.max(0, eco.heat-4*dt);
 
@@ -1715,6 +1804,7 @@ function update(dt){
           robTarget.robbed=true; snd.cash();
           eco.stats.convoys++; eco.stats.earned+=net;
           toast(`🚚 CONVOY HIT: +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+          if(TUT) tutEvent('convoy');
         }
       } else if(robKind==='building'){
         const gross=Math.round(rand(robTarget.heist[0],robTarget.heist[1]));
@@ -1729,6 +1819,7 @@ function update(dt){
         snd.cash();
         eco.stats.heists++; eco.stats.earned+=net;
         toast(`🏦 HEIST: cracked ${robTarget.label} — +${net.toFixed(2)} 🧀 PENDING · +${auraGain} ✦⚔`, 'res');
+        if(TUT) tutEvent('heist');
       } else {
         const auraGain=Math.round(robTarget.aura*player.auraMult);
         gainAura(auraGain);
@@ -1739,6 +1830,7 @@ function update(dt){
         snd.cash();
         eco.stats.robberies++;
         toast(`Robbed a ${robTarget.kind}: +${auraGain} ✦ AURA · +${auraGain} ⚔ REP — respect, not cheese.`);
+        if(TUT) tutEvent('rob');
       }
       robProg=0;
     }
