@@ -200,6 +200,8 @@
   .ppage .plab{color:var(--dim); letter-spacing:3px; font-size:11px;}
   .ppage b{font-size:30px; color:var(--feta);}
   .ppage small{color:var(--dim); font-size:10px; line-height:1.6; max-width:210px;}
+  .pbar{width:210px; height:12px; border:2px solid #2a3352; background:#0d1226; margin:6px 0;}
+  .pbar i{display:block; height:100%; background:var(--feta); width:0%; transition:width .3s ease;}
   #liveList{font-size:10px; color:#57d7e8; line-height:1.7; max-height:170px; overflow:auto; width:100%;}
   .parrow{
     position:absolute; bottom:10px; width:54px; height:30px; background:#0a0f1f; color:var(--ink);
@@ -239,7 +241,9 @@
       <img class="fetalogo" id="phoneLogo" alt="$FETA">
       <div id="phoneView"><div id="phoneTrack">
         <div class="ppage"><div class="pico">⏳</div><div class="plab">PENDING</div><b id="uiFeta">0</b><small>🧀 this season · pays at the horn via the ClaimBank · Street License required</small></div>
+        <div class="ppage"><div class="pico">🧀</div><div class="plab">$FETA BALANCE</div><b id="uiBal">—</b><small id="uiBalNote">your wallet's on-chain $FETA · live from Robinhood Chain · refreshes every 30s</small></div>
         <div class="ppage"><div class="pico">✦</div><div class="plab">AURA</div><b id="uiAura">0</b><small>lifetime street cred · drives your level, can never be taken</small></div>
+        <div class="ppage"><div class="pico">✪</div><div class="plab">LEVEL</div><b id="uiLvl2">1</b><div class="pbar"><i id="uiLvlFill"></i></div><small id="uiLvlNote">—</small></div>
         <div class="ppage"><div class="pico">⚔</div><div class="plab">REP</div><b id="uiRep">0</b><small>volatile · sets your emission share · wiped if you take the fall</small></div>
         <div class="ppage"><div class="pico">🏛</div><div class="plab">RESERVE</div><b id="uiRes">—</b><small>the Feather-Ral treasury · trade tax accrues in ETH · live on-chain</small></div>
         <div class="ppage"><div class="pico" style="color:#57d7e8">●</div><div class="plab">LIVE</div><b id="uiLive">—</b><div id="liveList"></div></div>
@@ -1278,7 +1282,8 @@ const keys={};
 /* ---------- the burner phone (P) ---------- */
 const FETA_LOGO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAANh0lEQVR4nO3dMWhd5xnHYau+yBBsiRoyGIcoaHGGLkWZhDVok8EdBZ69GTJo0hKjQXjqJK+ZAh5iUKY0NNo0qJGXKwqJhmYRUVwP4YJVS+WCDOJ273jfQz4O/+fZ3/u9lqV7fnzLuXYNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPh/M60XgIq9nYVJy/OXlxZbHl92eHTSeoWS1j//uZV936H01h9aLwAA/P4EAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEMi7rCk5P1idtDy/7++zT7e8tNh6hZLWv39rG6e+w5maGwAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQIPWC1Czt7Mwab1DsvXtG61X6LXr7w9K8y+f3e1ok346P1ht+vc/t7I/0/J8atwAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAATyLufG9nYWmr7Pu7VHT9+U5j/48LOONsl08e5t0/Ovvz8pzf/rl3el+U8/mS/NX80uluZ3ty5L88tLtfNbm1vZ9wxqyA0AAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCDvYi46P1idtDz/8Kj2PvWqx8/vND2ffhuPhqX5s+PN0vxvN78ozX/6yXxp/mp2sTS/u3VZmu+7tY1Tz7ACNwAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgeLfpby3szCpzC8v1d7nfXh0Upp//PxOaR76bDwalubPjjdL87/d/KI0/+kn86X5qvsvnpTmPz/9tqNNplP9/p1b2Y9+BroBAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAjU+3ch7+0sTFrvUPH4+Z3WK0Cs8WjYeoWS+y+etF6h5PPTb0vzy0uLHW0ynbmV/V4/Q90AAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQatF4AoJUPPvysND8eDUvz9188Kc1DhRsAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEAzrRc4P1idtDz/8OikNP/4+Z2ONgH6Zjwalubvv3jS0SZt/OeXt03Pfzrzj6bnV61tnDZ9BrsBAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAg0aL1Aa4+evinNf/DhnY42AdL87c+3SvN/+edFR5v0U/X7++Wzux1t0k9uAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACzVQ/YG9nYdLFIq08fn6n9QpAI+PRsDR/drzZ0SZt/PFPf229QsnV7GJpfnfrsjS/vFQ7v2puZb/0DHcDAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBo0HoBgGmNR8PS/NnxZkebtPHD379pev7V7GLT86lxAwAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQaFD9gOWl2vugD49OSvPr2zdK87fmS+MQbTwaNj3/7Hiz6flVF69ftV4h2qOnb0rzv37f9vlX5QYAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAINCg9QJAO+PRsDR/drzZ0Sb99PWXXzU9/+OPbjY9v++uZhdL84dHJx1t0oYbAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAg9YLANMbj4al+bPjzY426aeL169arwDNuAEAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACDSofsDh0UkXezRz8e5taf7W/O2ONiHReDQszZ8db3a0ST9dvH7V9PyHD+41Pf/Hn940PZ+a5aXF4ieclqbdAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEGrReAFoaj4ZNzz873mx6ftXF61etVwCm5AYAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAINCg9QLLS4ul+evvD0rzV7O18y/evS3N35q/XZpPNx4NS/Nnx5sdbdJPF69flea/+/7njjaZzsMH95qeD33mBgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAg0KD6ActLi13sMbWXz+6W5te3O1pkShfv3pbmb83f7miTNsajYWn+7Hizo0366eL1q9L8d9//3NEmbVT3f/jgXkeb0Ee7W5dNzz88Oml6vhsAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgECD1gtQc/HubWn+1vzt0vx4NCzNnx1vlub77uL1q9YrAKHcAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEGlQ/YG5lf6Yyv7ezMKnuwPTGo2Fp/ux4s6NN2vj6y69ar1Dy8MG9pvPfff9zab6quj/9dv39SWl+eWmlo02mU31+VrkBAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAg0aL1Aa7tbl6X59e0bHW0yner7sM+ONzvapI0f/v5Naf7jj26W5n/993+bnv/jT29K81XV/ata//tp6+Wzu61X6DU3AAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBZlovUHV+sDppef7h0Ulpfn37RkebTOf6+9r+QH9dzS42PX9367Lp+VVrG6e9foa6AQCAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAINGi9AG21fh84AG24AQCAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAINNN6gdbOD1YnlfnDo5OuVpnK+vaNpucDuXa3Lkvzy0uLpfnq9+/axmn0M9ANAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAECg6Hchd2FvZ2HSeoeW1rdvtF4BYu1uXTY9f3lpsen5cyv7nmEFbgAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAnmXcmPnB6uT1jtUHB6dlObXt290tAn8/q6/r/3+v3x2t6NN+mlt49QzqCE3AAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBvIu5584PVictzz88qr0Pve8ePX1Tmr+aXexok0y7W5dNz19eavv/1/rvb23j1DOkx9wAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAATyLmdK9nYWJi3Pb/0+9qrW73OnpvXv39zKvu9wpuYGAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQd0nTa+cHq5OW5x8enbQ8vqz1++yrWv/81zZOfYfSW24AACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAArl279j/L0HNSC9/8NgAAAABJRU5ErkJggg==';
 document.querySelectorAll('.fetalogo').forEach(i=>i.src=FETA_LOGO);
-let phoneOpen=false, phonePage=0; const PHONE_PAGES=6;
+let phoneOpen=false, phonePage=0;
+const PHONE_PAGES=document.querySelectorAll('#phoneTrack .ppage').length;
 const dots=document.getElementById('pDots');
 for(let i=0;i<PHONE_PAGES;i++){ const d=document.createElement('span'); if(i===0)d.className='on'; dots.appendChild(d); }
 function phoneGo(i){
@@ -1746,6 +1751,19 @@ function update(dt){
   document.getElementById('uiStrikes').textContent='⛓ '+eco.strikes+'/3'+(eco.ratT>0?' · 🐀 '+Math.ceil(eco.ratT)+'s':'');
   document.getElementById('uiLvl').textContent=eco.lvl;
   document.getElementById('heatfill').style.width=eco.heat+'%';
+  // --- burner phone: LEVEL page (XP bar) + $FETA BALANCE page ---
+  document.getElementById('uiBal').textContent = chainFeta==null?'—':chainFeta.toLocaleString();
+  document.getElementById('uiLvl2').textContent=eco.lvl;
+  const lvlBase=LVL_T[eco.lvl-1]??0, lvlNext=LVL_T[eco.lvl];
+  if(lvlNext!=null){
+    const pct=Math.max(0,Math.min(100,(eco.lifetime-lvlBase)/(lvlNext-lvlBase)*100));
+    document.getElementById('uiLvlFill').style.width=pct.toFixed(1)+'%';
+    document.getElementById('uiLvlNote').textContent=
+      `${Math.round(eco.lifetime)} / ${lvlNext} ✦ lifetime aura · ${Math.max(0,Math.ceil(lvlNext-eco.lifetime))} ✦ to LVL ${eco.lvl+1}`;
+  }else{
+    document.getElementById('uiLvlFill').style.width='100%';
+    document.getElementById('uiLvlNote').textContent='MAX LEVEL — the streets are yours';
+  }
 }
 
 /* ---------- Render ---------- */
